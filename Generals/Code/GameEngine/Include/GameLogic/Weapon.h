@@ -409,6 +409,13 @@ public:
 		const WeaponBonus& bonus
 	) const;
 
+	// Compute the aggregate weapon bonus produced by the source object's current
+	// weapon bonus condition flags (veterancy, garrison, etc.) plus any extra flags.
+	// This is the same computation performed when a Weapon instance fires
+	// (Weapon::computeBonus delegates here), exposed for modules that fire a
+	// WeaponTemplate directly (e.g. PointDefenseLaserUpdate).
+	void computeBonus(const Object *source, WeaponBonusConditionFlags extraBonusFlags, WeaponBonus& bonus) const;
+
 	Real getAttackRange(const WeaponBonus& bonus) const;
 	Real getUnmodifiedAttackRange() const;
 	Real getMinimumAttackRange() const;

@@ -36,6 +36,7 @@
 // FORWARD REFERENCES /////////////////////////////////////////////////////////////////////////////
 class ThingTemplate;
 class WeaponTemplate;
+class WeaponBonus;
 
 
 //-------------------------------------------------------------------------------------------------
@@ -49,6 +50,7 @@ public:
 	UnsignedInt			m_scanFrames;
 	Real						m_scanRange;
 	Real						m_velocityFactor;
+	Bool						m_veterancyBoost;		///< if true, apply the owner's weapon bonus conditions (veterancy etc.) to range & rate of fire
 
 	PointDefenseLaserUpdateModuleData();
 	static void buildFieldParse(MultiIniFieldParse& p);
@@ -78,6 +80,11 @@ public:
 	void fireWhenReady();
 
 protected:
+
+	/// Compute the weapon bonus to use for the interception weapon. Cleared (all 1.0)
+	/// unless VeterancyBoost is enabled, in which case the owner's current weapon
+	/// bonus condition flags (veterancy, garrison, etc.) are applied.
+	void computeWeaponBonus( WeaponBonus& bonus ) const;
 
 	ObjectID m_bestTargetID;
 	Bool m_inRange;

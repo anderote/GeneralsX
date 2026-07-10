@@ -71,6 +71,54 @@ Every shipped object INI provides exactly 4; the missing high ranks are extrapol
 Providing all 8 values explicitly in an INI is fully supported for future data, and any
 count in between works (the remainder is extrapolated from the last two provided values).
 
+## PointDefenseLaserUpdate: `VeterancyBoost` (opt-in)
+
+`PointDefenseLaserUpdate` (the anti-missile laser module, e.g. the USA Avenger) stock
+behavior computes its interception weapon's range and shot delay with a **cleared**
+`WeaponBonus`, so veterancy never affects it. A new module-data field makes it honor
+the owner's weapon bonus conditions:
+
+```ini
+Behavior = PointDefenseLaserUpdate ModuleTag_PDL
+  WeaponTemplate                 = AvengerPointDefenseLaser
+  PrimaryTargetTypes             = BALLISTIC_MISSILE SMALL_MISSILE
+  ScanRate                       = 0
+  ScanRange                      = 150.0  ; must stay > base (unboosted) weapon range
+  PredictTargetVelocityFactor    = 2.0
+  VeterancyBoost                 = Yes    ; NEW; default No (stock behavior)
+End
+```
+
+Semantics when `VeterancyBoost = Yes`:
+
+- The interception `WeaponBonus` is computed from the owning object's **current weapon
+  bonus condition flags** via the new public `WeaponTemplate::computeBonus()` (the exact
+  same computation `Weapon::computeBonus()` performs when a normal weapon fires, and
+  `Weapon::computeBonus` now delegates to it). That means `VETERAN`/`ELITE`/`HERO` and
+  this branch's `HERO2..HERO5` conditions apply, and any other active conditions
+  (e.g. `GARRISONED`, ZH container-passed bonuses) come along for the ride by design.
+- **RANGE** bonus multiplies the interception firing range, and the scan/acquisition
+  radius (`ScanRange`) is scaled by the same factor so acquisition keeps pace.
+- **RATE_OF_FIRE** bonus shortens the effective delay between interception shots. The
+  module throttles with its own frame counter (`m_nextShotAvailableInFrames`, refilled
+  from `WeaponTemplate::getDelayBetweenShots(bonus)` after each shot -- it allocates,
+  fires and deletes a fresh `Weapon` per shot, so the counter, not weapon readiness, is
+  the throttle); the real bonus is now passed into that refill.
+- **DAMAGE** already scaled with the owner's bonuses in stock code (the per-shot
+  `Weapon::fireWeapon` path computes its own bonus internally); this is unchanged.
+- With `VeterancyBoost = No` (or omitted) the bonus stays cleared: bit-for-bit stock
+  behavior, including for saves/replays.
+
+Note: vanilla `GameData.ini` `WeaponBonus` grants no RANGE/RATE_OF_FIRE to the
+veterancy conditions (VETERAN/ELITE/HERO give DAMAGE + ROF only in ZH -- check your
+`WeaponBonus` table), so a mod enabling this should also define the desired
+`WeaponBonus = HERO RANGE 120%`-style entries (globally in `GameData.ini` or per-weapon
+via the weapon's `WeaponBonus =` override) for the conditions it wants to matter.
+
+Touched files: `Include/GameLogic/Weapon.h`, `Source/GameLogic/Object/Weapon.cpp`
+(computeBonus hoisted to `WeaponTemplate`), `Include/GameLogic/Module/PointDefenseLaserUpdate.h`,
+`Source/GameLogic/Object/Update/PointDefenseLaserUpdate.cpp` -- mirrored in both trees.
+
 ## Insignia / rank UI decision
 
 - World-space chevrons (`Drawable::s_veterancyImage`): levels 4-7 **reuse the HEROIC

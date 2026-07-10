@@ -55,6 +55,7 @@ PointDefenseLaserUpdateModuleData::PointDefenseLaserUpdateModuleData()
 	m_scanFrames				= 0;
 	m_scanRange					= 0.0f;
 	m_velocityFactor		= 0.0f;
+	m_veterancyBoost		= FALSE;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -70,6 +71,7 @@ PointDefenseLaserUpdateModuleData::PointDefenseLaserUpdateModuleData()
 		{ "ScanRate",							INI::parseDurationUnsignedInt,	nullptr, offsetof( PointDefenseLaserUpdateModuleData, m_scanFrames ) },
 		{ "ScanRange",						INI::parseReal,									nullptr, offsetof( PointDefenseLaserUpdateModuleData, m_scanRange ) },
 		{ "PredictTargetVelocityFactor", INI::parseReal,					nullptr, offsetof( PointDefenseLaserUpdateModuleData, m_velocityFactor ) },
+		{ "VeterancyBoost",				INI::parseBool,									nullptr, offsetof( PointDefenseLaserUpdateModuleData, m_veterancyBoost ) },
 		{ nullptr, nullptr, nullptr, 0 }
 	};
 	p.add(dataFieldParse);
@@ -155,16 +157,35 @@ UpdateSleepTime PointDefenseLaserUpdate::update()
 }
 
 //-------------------------------------------------------------------------------------------------
+void PointDefenseLaserUpdate::computeWeaponBonus( WeaponBonus& bonus ) const
+{
+	const PointDefenseLaserUpdateModuleData *data = getPointDefenseLaserUpdateModuleData();
+	if( data->m_veterancyBoost && data->m_weaponTemplate )
+	{
+		//Opt-in: use the owning object's current weapon bonus condition flags
+		//(veterancy, garrison, etc.) -- the same path Weapon::computeBonus() takes
+		//when a normal weapon fires -- so RANGE and RATE_OF_FIRE bonuses apply.
+		data->m_weaponTemplate->computeBonus( getObject(), 0, bonus );
+	}
+	else
+	{
+		//Stock behavior: no bonuses ever apply to the point defense laser.
+		bonus.clear();
+	}
+}
+
+//-------------------------------------------------------------------------------------------------
 void PointDefenseLaserUpdate::fireWhenReady()
 {
 	const PointDefenseLaserUpdateModuleData *data = getPointDefenseLaserUpdateModuleData();
+
+	WeaponBonus bonus;
+	computeWeaponBonus( bonus );
 
 	//Track our target
 	Object *target = TheGameLogic->findObjectByID( m_bestTargetID );
 	if( target )
 	{
-		WeaponBonus bonus;
-		bonus.clear();
 		Real fireRange = data->m_weaponTemplate->getAttackRange( bonus );
 		Object *me = getObject();
 		Real fDist = WWMath::SqrtOrigin( ThePartitionManager->getDistanceSquared( me, target, FROM_CENTER_2D ) );
@@ -206,8 +227,6 @@ void PointDefenseLaserUpdate::fireWhenReady()
 	WeaponTemplate *wt = data->m_weaponTemplate;
 	if( wt )
 	{
-		WeaponBonus bonus;
-
 		//Fire control!
 		if( target && m_inRange )
 		{
@@ -248,10 +267,14 @@ Object* PointDefenseLaserUpdate::scanClosestTarget()
 	Real closestOutsideRange[2];
 	Int index;
 	WeaponBonus bonus;
-	bonus.clear();
+	computeWeaponBonus( bonus );
 	Real fireRange = data->m_weaponTemplate->getAttackRange( bonus );
 
-	ObjectIterator *iter = ThePartitionManager->iterateObjectsInRange( me->getPosition(), data->m_scanRange, FROM_CENTER_2D );
+	//Scale the scan range by the same RANGE bonus so the acquisition radius keeps
+	//pace with the boosted firing range (no-op when VeterancyBoost is off).
+	Real scanRange = data->m_scanRange * bonus.getField( WeaponBonus::RANGE );
+
+	ObjectIterator *iter = ThePartitionManager->iterateObjectsInRange( me->getPosition(), scanRange, FROM_CENTER_2D );
 	MemoryPoolObjectHolder hold(iter);
 
 	for( Object *other = iter->first(); other; other = iter->next() )
