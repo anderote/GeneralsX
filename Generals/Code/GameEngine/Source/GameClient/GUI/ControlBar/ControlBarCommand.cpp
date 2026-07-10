@@ -956,6 +956,11 @@ const Image* ControlBar::calculateVeterancyOverlayForThing( const ThingTemplate 
 		case LEVEL_ELITE:
 			return m_rankEliteIcon;
 		case LEVEL_HEROIC:
+		// GeneralsX @feature Extended veterancy: ranks above HEROIC reuse the heroic overlay.
+		case LEVEL_HEROIC2:
+		case LEVEL_HEROIC3:
+		case LEVEL_HEROIC4:
+		case LEVEL_HEROIC5:
 			return m_rankHeroicIcon;
 	}
 	return nullptr;
@@ -978,6 +983,11 @@ const Image* ControlBar::calculateVeterancyOverlayForObject( const Object *obj )
 		case LEVEL_ELITE:
 			return m_rankEliteIcon;
 		case LEVEL_HEROIC:
+		// GeneralsX @feature Extended veterancy: ranks above HEROIC reuse the heroic overlay.
+		case LEVEL_HEROIC2:
+		case LEVEL_HEROIC3:
+		case LEVEL_HEROIC4:
+		case LEVEL_HEROIC5:
 			return m_rankHeroicIcon;
 	}
 	return nullptr;

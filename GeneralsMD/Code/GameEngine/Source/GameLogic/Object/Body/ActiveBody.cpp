@@ -1448,6 +1448,11 @@ void ActiveBody::onVeterancyLevelChanged( VeterancyLevel oldLevel, VeterancyLeve
 					veterancyChanged = *getObject()->getTemplate()->getSoundPromotedElite();
 					break;
 				case LEVEL_HEROIC:
+				// GeneralsX @feature Extended veterancy: ranks above HEROIC reuse the hero promotion sound.
+				case LEVEL_HEROIC2:
+				case LEVEL_HEROIC3:
+				case LEVEL_HEROIC4:
+				case LEVEL_HEROIC5:
 					veterancyChanged = *getObject()->getTemplate()->getSoundPromotedHero();
 					break;
 			}
@@ -1496,29 +1501,22 @@ void ActiveBody::onVeterancyLevelChanged( VeterancyLevel oldLevel, VeterancyLeve
 	// now change the cur (setMaxHealth now handles it)
 	//internalChangeHealth( newHealth - m_currentHealth );
 
-	switch (newLevel)
-	{
-		case LEVEL_REGULAR:
-			clearArmorSetFlag(ARMORSET_VETERAN);
-			clearArmorSetFlag(ARMORSET_ELITE);
-			clearArmorSetFlag(ARMORSET_HERO);
-			break;
-		case LEVEL_VETERAN:
-			setArmorSetFlag(ARMORSET_VETERAN);
-			clearArmorSetFlag(ARMORSET_ELITE);
-			clearArmorSetFlag(ARMORSET_HERO);
-			break;
-		case LEVEL_ELITE:
-			clearArmorSetFlag(ARMORSET_VETERAN);
-			setArmorSetFlag(ARMORSET_ELITE);
-			clearArmorSetFlag(ARMORSET_HERO);
-			break;
-		case LEVEL_HEROIC:
-			clearArmorSetFlag(ARMORSET_VETERAN);
-			clearArmorSetFlag(ARMORSET_ELITE);
-			setArmorSetFlag(ARMORSET_HERO);
-			break;
-	}
+	// GeneralsX @feature Extended veterancy: predicate-driven so all 8 levels are handled.
+	// Ranks above HEROIC keep using the HEROIC armor set (no new per-level armor variants).
+	if (newLevel == LEVEL_VETERAN)
+		setArmorSetFlag(ARMORSET_VETERAN);
+	else
+		clearArmorSetFlag(ARMORSET_VETERAN);
+
+	if (newLevel == LEVEL_ELITE)
+		setArmorSetFlag(ARMORSET_ELITE);
+	else
+		clearArmorSetFlag(ARMORSET_ELITE);
+
+	if (newLevel >= LEVEL_HEROIC)
+		setArmorSetFlag(ARMORSET_HERO);
+	else
+		clearArmorSetFlag(ARMORSET_HERO);
 }
 
 // ------------------------------------------------------------------------------------------------

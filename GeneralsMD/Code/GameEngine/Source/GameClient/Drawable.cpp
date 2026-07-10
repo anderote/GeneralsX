@@ -293,6 +293,11 @@ const Int MAX_ENABLED_MODULES								= 16;
 	s_veterancyImage[2] = TheMappedImageCollection->findImageByName("SCVeter2");
 	s_veterancyImage[3] = TheMappedImageCollection->findImageByName("SCVeter3");
 
+	// GeneralsX @feature Extended veterancy: ranks above HEROIC reuse the HEROIC chevron
+	// (no new art). drawVeterancy() also tolerates null entries, so this can never crash.
+	for (Int i = LEVEL_HEROIC + 1; i < LEVEL_COUNT; ++i)
+		s_veterancyImage[i] = s_veterancyImage[LEVEL_HEROIC];
+
 	s_fullAmmo	= TheMappedImageCollection->findImageByName("SCPAmmoFull");
 	s_emptyAmmo	= TheMappedImageCollection->findImageByName("SCPAmmoEmpty");
 	s_fullContainer	= TheMappedImageCollection->findImageByName("SCPPipFull");

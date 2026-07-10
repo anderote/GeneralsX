@@ -493,6 +493,11 @@ StateReturnType HackInternetState::update()
 				UnsignedInt amount = 0;
 				switch( xp->getVeterancyLevel() )
 				{
+					// GeneralsX @feature Extended veterancy: ranks above HEROIC hack heroic cash.
+					case LEVEL_HEROIC5:
+					case LEVEL_HEROIC4:
+					case LEVEL_HEROIC3:
+					case LEVEL_HEROIC2:
 					case LEVEL_HEROIC:
 						amount = ai->getHeroicCashAmount();
 						if( amount )

@@ -207,6 +207,16 @@ enum WeaponBonusConditionType CPP_11(: Int)
 	WEAPONBONUSCONDITION_FRENZY_TWO,
 	WEAPONBONUSCONDITION_FRENZY_THREE,
 
+	// GeneralsX @feature Extended veterancy: bonus conditions for ranks above HEROIC.
+	// Appended at the end (values are saved in save files as raw bit flags).
+	// These are cumulative: at LEVEL_HEROIC3, HERO + HERO2 + HERO3 are all set, so
+	// each level's WeaponBonus entry defines the marginal bonus on top of the previous.
+	// NOTE: WeaponBonusConditionFlags is a 32-bit UnsignedInt; count must stay <= 32.
+	WEAPONBONUSCONDITION_HERO2,
+	WEAPONBONUSCONDITION_HERO3,
+	WEAPONBONUSCONDITION_HERO4,
+	WEAPONBONUSCONDITION_HERO5,
+
 	WEAPONBONUSCONDITION_COUNT
 };
 #ifdef DEFINE_WEAPONBONUSCONDITION_NAMES
@@ -244,6 +254,11 @@ static const char *const TheWeaponBonusNames[] =
 	"FRENZY_ONE",
 	"FRENZY_TWO",
 	"FRENZY_THREE",
+
+	"HERO2",
+	"HERO3",
+	"HERO4",
+	"HERO5",
 
 	nullptr
 };
