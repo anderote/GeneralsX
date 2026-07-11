@@ -133,6 +133,33 @@ static GameFont *ResolveDrawableCaptionFont()
 	return font;
 }
 
+// GeneralsX @feature Resolution scale for floating UI (health bars + veterancy readout).
+// The floating health box and veterancy text are sized in raw screen pixels, so at high
+// resolutions they shrink relative to the larger-rendered units. Derive a modest scale
+// factor from the current display height against a configurable baseline, clamped.
+// Returns 1.0 (no scaling) when disabled or when the display size is unavailable.
+static Real ResolveFloatingUIScale()
+{
+	if (TheGlobalData == nullptr || TheDisplay == nullptr)
+		return 1.0f;
+
+	const Real refHeight = TheGlobalData->m_uiFloatingScaleReferenceHeight;
+	if (refHeight <= 0.0f)
+		return 1.0f;	// scaling disabled
+
+	const Real displayHeight = (Real)TheDisplay->getHeight();
+	if (displayHeight <= 0.0f)
+		return 1.0f;
+
+	Real scale = displayHeight / refHeight;
+	if (scale < 1.0f)
+		scale = 1.0f;	// never shrink below the authored size
+	const Real maxScale = TheGlobalData->m_uiFloatingScaleMax;
+	if (maxScale >= 1.0f && scale > maxScale)
+		scale = maxScale;
+	return scale;
+}
+
 // Veterancy XP readout wants to be quieter than group-number captions:
 // ~60% of the caption point size, never bold, floor of 8pt for legibility.
 static GameFont *ResolveVeterancyProgressFont()
@@ -143,7 +170,8 @@ static GameFont *ResolveVeterancyProgressFont()
 	}
 
 	const Int basePointSize = TheInGameUI->getDrawableCaptionPointSize();
-	Int pointSize = (basePointSize * 3) / 5;
+	// GeneralsX @feature scale the readout font with resolution so it stays legible at high res.
+	Int pointSize = (Int)(((basePointSize * 3) / 5) * ResolveFloatingUIScale());
 	if (TheGlobalLanguageData)
 		pointSize = TheGlobalLanguageData->adjustFontSize(pointSize);
 	if (pointSize < 8)
@@ -2751,12 +2779,17 @@ static Bool computeHealthRegion( const Drawable *draw, IRegion2D& region )
 	//Real heightScale = 0.8f / zoom;
 	Real heightScale = 1.0f;
 
+	// GeneralsX @feature scale the floating health box with the display resolution so it
+	// doesn't look tiny at high resolutions (e.g. 3440x1440). See ResolveFloatingUIScale().
+	const Real uiScale = ResolveFloatingUIScale();
+	widthScale *= uiScale;
+
 	healthBoxWidth *= widthScale;
 	healthBoxHeight *= heightScale;
 
 	// do this so health bar doesn't get too skinny or fat after scaling
 	//healthBoxHeight = max(3.0f, healthBoxHeight);
-	healthBoxHeight = 3.0f;
+	healthBoxHeight = 3.0f * uiScale;
 
 	// figure out the final region for the health box
 	region.lo.x = screenCenter.x - healthBoxWidth * 0.45f;

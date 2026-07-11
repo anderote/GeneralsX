@@ -91,6 +91,9 @@ GlobalData* GlobalData::m_theOriginal = nullptr;
 	{ "CheckForUpdates",					INI::parseBool,				nullptr,			offsetof( GlobalData, m_checkForUpdates ) },
 	{ "XResolution",							INI::parseInt,				nullptr,			offsetof( GlobalData, m_xResolution ) },
 	{ "YResolution",							INI::parseInt,				nullptr,			offsetof( GlobalData, m_yResolution ) },
+	// GeneralsX @feature Resolution-scaled floating UI (health bars + veterancy readout).
+	{ "UIFloatingScaleReferenceHeight",	INI::parseReal,				nullptr,			offsetof( GlobalData, m_uiFloatingScaleReferenceHeight ) },
+	{ "UIFloatingScaleMax",				INI::parseReal,				nullptr,			offsetof( GlobalData, m_uiFloatingScaleMax ) },
 	{ "MapName",									INI::parseAsciiString,nullptr,			offsetof( GlobalData, m_mapName ) },
 	{ "MoveHintName",							INI::parseAsciiString,nullptr,			offsetof( GlobalData, m_moveHintName ) },
 	{ "UseTrees",									INI::parseBool,				nullptr,			offsetof( GlobalData, m_useTrees ) },
@@ -663,6 +666,9 @@ GlobalData::GlobalData()
 	m_windowed = 0;
 	m_xResolution = DEFAULT_DISPLAY_WIDTH;
 	m_yResolution = DEFAULT_DISPLAY_HEIGHT;
+	// GeneralsX @feature Resolution-scaled floating UI defaults (600p baseline, 2.5x clamp).
+	m_uiFloatingScaleReferenceHeight = 600.0f;
+	m_uiFloatingScaleMax = 2.5f;
 	m_maxShellScreens = 0;
 	m_useCloudMap = FALSE;
 	m_use3WayTerrainBlends = 1;
