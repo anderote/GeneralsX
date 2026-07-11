@@ -133,6 +133,28 @@ static GameFont *ResolveDrawableCaptionFont()
 	return font;
 }
 
+// Veterancy XP readout wants to be quieter than group-number captions:
+// ~60% of the caption point size, never bold, floor of 8pt for legibility.
+static GameFont *ResolveVeterancyProgressFont()
+{
+	if (TheFontLibrary == nullptr || TheInGameUI == nullptr)
+	{
+		return nullptr;
+	}
+
+	const Int basePointSize = TheInGameUI->getDrawableCaptionPointSize();
+	Int pointSize = (basePointSize * 3) / 5;
+	if (TheGlobalLanguageData)
+		pointSize = TheGlobalLanguageData->adjustFontSize(pointSize);
+	if (pointSize < 8)
+		pointSize = 8;
+
+	GameFont *font = TheFontLibrary->getFont("Arial Unicode MS", pointSize, FALSE);
+	if (font) return font;
+
+	return TheFontLibrary->getFont("Arial", pointSize, FALSE);
+}
+
 /**
  * Returns a special DynamicAudioEventInfo which can be used to mark a sound as "no sound".
  * E.g. if m_customSoundAmbientInfo equals the value returned from this function, we
@@ -3284,7 +3306,7 @@ void Drawable::drawVeterancyProgressText( const IRegion2D *healthBarRegion )
 	if( m_veterancyProgressString == nullptr )
 	{
 		m_veterancyProgressString = TheDisplayStringManager->newDisplayString();
-		m_veterancyProgressString->setFont( ResolveDrawableCaptionFont() );
+		m_veterancyProgressString->setFont( ResolveVeterancyProgressFont() );
 	}
 
 	// only re-render the string when the value actually changes

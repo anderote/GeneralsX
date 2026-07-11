@@ -2806,10 +2806,15 @@ void Drawable::drawVeterancyProgressText( const IRegion2D *healthBarRegion )
 	if( m_veterancyProgressString == nullptr )
 	{
 		m_veterancyProgressString = TheDisplayStringManager->newDisplayString();
+		// ~60% of the caption size, never bold, 8pt floor — quieter than group numbers
+		Int vetPointSize = (TheInGameUI->getDrawableCaptionPointSize() * 3) / 5;
+		vetPointSize = TheGlobalLanguageData->adjustFontSize(vetPointSize);
+		if (vetPointSize < 8)
+			vetPointSize = 8;
 		GameFont *font = TheFontLibrary->getFont(
 			TheInGameUI->getDrawableCaptionFontName(),
-			TheGlobalLanguageData->adjustFontSize(TheInGameUI->getDrawableCaptionPointSize()),
-			TheInGameUI->isDrawableCaptionBold() );
+			vetPointSize,
+			FALSE );
 		m_veterancyProgressString->setFont( font );
 	}
 
