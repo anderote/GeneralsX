@@ -4955,6 +4955,17 @@ void Object::onPartitionCellChange()
 //-------------------------------------------------------------------------------------------------
 void Object::handlePartitionCellMaintenance()
 {
+	// GeneralsX @crashfix (sibling of bc51e34 onDisabledEdge fix): when a container
+	// (vehicle / garrisoned building) dies, OpenContain::removeAllContained ejects its
+	// riders, which can trigger partition-cell maintenance on a rider. If that rider was
+	// ALSO destroyed in the same damage event (e.g. Tesla-trooper-in-vehicle killed by the
+	// same blast), its destructor has already run deleteInstance() on the SightingInfo
+	// members and nulled them, so unlook() -> m_partitionLastLook->isInvalid() would deref
+	// NULL (SIGSEGV far=0x1c). These pointers are allocated together in the ctor and freed
+	// together in the dtor, so a single null-check gates all of shroud/value/threat upkeep.
+	if( m_partitionLastLook == nullptr )
+		return;
+
 	handleShroud();
 	handleValueMap();
 	handleThreatMap();
@@ -5191,6 +5202,12 @@ void Object::look()
 //-------------------------------------------------------------------------------------------------
 void Object::unlook()
 {
+	// GeneralsX @crashfix: defensive guard for a fully torn-down object (SightingInfo
+	// members already freed & nulled in ~Object) that still gets an unlook during
+	// container-death rider ejection. Mirrors the handlePartitionCellMaintenance guard.
+	if( m_partitionLastLook == nullptr )
+		return;
+
 	if( m_partitionLastLook->isInvalid() )
 	{
 		// Your very first action will be an unlook, so of course you haven't looked yet.  This is not an error
