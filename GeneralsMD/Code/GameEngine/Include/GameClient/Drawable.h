@@ -719,7 +719,11 @@ private:
 	DisplayString*			m_constructDisplayString;  ///< string to display construction % complete
 	DisplayString*			m_captionDisplayString;		///< string to display caption
 	DisplayString*			m_groupNumber;						///< string to display the group number of this drawable
-	DisplayString*			m_veterancyProgressString;///< GeneralsX @feature rank/XP readout for the single selected unit
+	// GeneralsX @feature Single-unit stats panel: a compact multi-line block (rank/XP,
+	// health, damage & range, speed, kills) drawn under the health bar of the one selected
+	// unit. One cached DisplayString per line; multi-select shows nothing.
+	enum { MAX_UNIT_STAT_LINES = 6 };
+	DisplayString*			m_veterancyProgressString[MAX_UNIT_STAT_LINES];
 
 	UnsignedInt					m_expirationDate;		///< if nonzero, Drawable should destroy itself at this frame
 	DrawableIconInfo*		m_iconInfo;					///< lazily allocated!

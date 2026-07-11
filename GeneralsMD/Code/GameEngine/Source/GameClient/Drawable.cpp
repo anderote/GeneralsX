@@ -575,7 +575,9 @@ Drawable::Drawable( const ThingTemplate *thingTemplate, DrawableStatusBits statu
 
 	m_groupNumber = nullptr;
 	m_captionDisplayString = nullptr;
-	m_veterancyProgressString = nullptr;
+	// GeneralsX @feature single-unit stats panel: one cached DisplayString per line
+	for ( Int statLine = 0; statLine < MAX_UNIT_STAT_LINES; ++statLine )
+		m_veterancyProgressString[statLine] = nullptr;
 	m_drawableInfo.m_drawable = this;
 	m_drawableInfo.m_ghostObject = nullptr;
 
@@ -618,9 +620,13 @@ Drawable::~Drawable()
 		TheDisplayStringManager->freeDisplayString( m_captionDisplayString );
 	m_captionDisplayString = nullptr;
 
-	if ( m_veterancyProgressString )
-		TheDisplayStringManager->freeDisplayString( m_veterancyProgressString );
-	m_veterancyProgressString = nullptr;
+	// GeneralsX @feature free the per-line stat-panel display strings
+	for ( i = 0; i < MAX_UNIT_STAT_LINES; ++i )
+	{
+		if ( m_veterancyProgressString[i] )
+			TheDisplayStringManager->freeDisplayString( m_veterancyProgressString[i] );
+		m_veterancyProgressString[i] = nullptr;
+	}
 
 	m_groupNumber = nullptr;
 
@@ -3290,12 +3296,19 @@ void Drawable::drawUIText()
 }
 
 // ------------------------------------------------------------------------------------------------
-/** GeneralsX @feature Draw the veterancy rank name and raw experience progress (e.g.
-	* "Elite 320/750 XP") underneath the health bar of the single selected experience-gaining
-	* unit.  Experience is tracked in raw points (see ExperienceTracker::addExperiencePoints),
-	* so the honest metric is XP against the template's next-rank threshold.
-	* Rank names are fetched through localizable labels with hardcoded English fallbacks, so no
-	* string-file (CSF) additions are required for the text to read correctly. */
+/** GeneralsX @feature Single-unit stats panel.  When exactly one experience-capable unit is
+	* selected, draw a compact multi-line block under its health bar:
+	*   line 0: rank name + raw XP against the next-rank threshold (e.g. "Elite 320/750 XP"),
+	*           or just the rank name at max rank / for units that can no longer gain XP;
+	*   line 1: current / max health;
+	*   line 2: current weapon damage & range, with the unit's veterancy / upgrade / garrison
+	*           WeaponBonus applied (same WeaponTemplate::computeBonus() path the PDL
+	*           VeterancyBoost uses, so the numbers match what the unit actually fires);
+	*   line 3: current movement speed (mobile units);
+	*   line 4: lifetime kill count (see ExperienceTracker kill counter).
+	* Multi-select intentionally shows nothing (gated by wantsVeterancyProgressText()).
+	* Rank names use localizable labels with hardcoded English fallbacks; the stat lines are
+	* plain formatted text, so no string-file (CSF) additions are required. */
 // ------------------------------------------------------------------------------------------------
 void Drawable::drawVeterancyProgressText( const IRegion2D *healthBarRegion )
 {
@@ -3316,43 +3329,96 @@ void Drawable::drawVeterancyProgressText( const IRegion2D *healthBarRegion )
 
 	UnicodeString rankName = TheGameText->fetchOrSubstitute( rankLabels[level], rankFallbacks[level] );
 
-	UnicodeString text;
+	// ---- build the stat lines ----
+	UnicodeString lines[MAX_UNIT_STAT_LINES];
+	Int numLines = 0;
+
+	// line 0: rank + XP progress (or rank only at max rank / non-trainable)
 	if( level < LEVEL_LAST && xpTracker->isTrainable() )
 	{
-		text = TheGameText->fetchOrSubstituteFormat( "GUI:VeterancyProgress", L"%ls %d/%d XP",
+		lines[numLines++] = TheGameText->fetchOrSubstituteFormat( "GUI:VeterancyProgress", L"%ls %d/%d XP",
 			rankName.str(),
 			xpTracker->getCurrentExperience(),
 			obj->getTemplate()->getExperienceRequired( level + 1 ) );
 	}
-	else if( level > LEVEL_REGULAR )
-	{
-		// max rank, or a unit that can no longer gain experience: just show the earned rank
-		text = TheGameText->fetchOrSubstituteFormat( "GUI:VeterancyRankOnly", L"%ls",
-			rankName.str() );
-	}
 	else
 	{
-		// regular and unable to gain experience: nothing worth showing
-		return;
+		lines[numLines++] = TheGameText->fetchOrSubstituteFormat( "GUI:VeterancyRankOnly", L"%ls",
+			rankName.str() );
 	}
 
-	if( m_veterancyProgressString == nullptr )
+	// line: current / max health
+	const BodyModuleInterface *body = obj->getBodyModule();
+	if( body != nullptr && numLines < MAX_UNIT_STAT_LINES )
 	{
-		m_veterancyProgressString = TheDisplayStringManager->newDisplayString();
-		m_veterancyProgressString->setFont( ResolveVeterancyProgressFont() );
+		lines[numLines++].format( L"HP %d/%d",
+			(Int)(body->getHealth() + 0.5f), (Int)(body->getMaxHealth() + 0.5f) );
 	}
 
-	// only re-render the string when the value actually changes
-	if( m_veterancyProgressString->getText().compare( text ) != 0 )
-		m_veterancyProgressString->setText( text );
+	// line: current weapon damage & range with veterancy / upgrade / garrison bonuses applied
+	const Weapon *weapon = obj->getCurrentWeapon();
+	if( weapon != nullptr && weapon->isDamageWeapon() && numLines < MAX_UNIT_STAT_LINES )
+	{
+		const WeaponTemplate *wt = weapon->getTemplate();
+		if( wt != nullptr )
+		{
+			WeaponBonus bonus;
+			wt->computeBonus( obj, 0, bonus );
+			const Real dmg = wt->getPrimaryDamage( bonus );
+			const Real range = wt->getAttackRange( bonus );
+			lines[numLines++].format( L"DMG %d  RNG %d", (Int)(dmg + 0.5f), (Int)(range + 0.5f) );
+		}
+	}
 
-	// centered underneath the health bar
-	Int xPos = healthBarRegion->lo.x
-		+ (healthBarRegion->width() - m_veterancyProgressString->getWidth()) / 2;
+	// line: movement speed (mobile units only)
+	const AIUpdateInterface *ai = obj->getAIUpdateInterface();
+	if( ai != nullptr && numLines < MAX_UNIT_STAT_LINES )
+	{
+		const Locomotor *loco = ai->getCurLocomotor();
+		if( loco != nullptr )
+		{
+			const BodyDamageType dmgState = body ? body->getDamageState() : BODY_PRISTINE;
+			const Real speed = loco->getMaxSpeedForCondition( dmgState );
+			if( speed > 0.0f )
+				lines[numLines++].format( L"SPD %d", (Int)(speed + 0.5f) );
+		}
+	}
+
+	// line: lifetime kill count
+	if( numLines < MAX_UNIT_STAT_LINES )
+	{
+		const Int kills = xpTracker->getKillCount();
+		if( kills > 0 )
+			lines[numLines++].format( L"Kills %d", kills );
+	}
+
+	// ---- render the block, stacked and centered under the health bar ----
+	GameFont *font = ResolveVeterancyProgressFont();
+	const Int lineHeight = ( font != nullptr ) ? font->height : 10;
+	const Int centerX = healthBarRegion->lo.x + healthBarRegion->width() / 2;
+	const Color textColor = TheInGameUI->getDrawableCaptionColor();
+	const Color shadowColor = GameMakeColor( 0, 0, 0, 255 );
 	Int yPos = healthBarRegion->hi.y + 1;
 
-	m_veterancyProgressString->draw( xPos, yPos,
-		TheInGameUI->getDrawableCaptionColor(), GameMakeColor( 0, 0, 0, 255 ) );
+	for( Int i = 0; i < numLines; ++i )
+	{
+		if( m_veterancyProgressString[i] == nullptr )
+		{
+			m_veterancyProgressString[i] = TheDisplayStringManager->newDisplayString();
+			m_veterancyProgressString[i]->setFont( font );
+		}
+
+		// only re-render (and re-font, in case the resolution scale changed) on change
+		if( m_veterancyProgressString[i]->getText().compare( lines[i] ) != 0 )
+		{
+			m_veterancyProgressString[i]->setFont( font );
+			m_veterancyProgressString[i]->setText( lines[i] );
+		}
+
+		const Int xPos = centerX - m_veterancyProgressString[i]->getWidth() / 2;
+		m_veterancyProgressString[i]->draw( xPos, yPos, textColor, shadowColor );
+		yPos += lineHeight + 1;
+	}
 }
 
 // ------------------------------------------------------------------------------------------------
