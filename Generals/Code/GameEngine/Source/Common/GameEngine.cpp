@@ -28,6 +28,10 @@
 
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 
+// GeneralsX @feature For typed uncaught-exception reporting in execute().
+#include <exception>
+#include <typeinfo>
+
 #include "Common/ActionManager.h"
 #include "Common/AudioAffect.h"
 #include "Common/BuildAssistant.h"
@@ -922,14 +926,44 @@ void GameEngine::execute()
 				}
 				catch (INIException e)
 				{
+					// GeneralsX @feature Freeze the throw-site snapshot before any further code runs.
+					CrashDiagFreezeThrowSite();
 					// Release CRASH doesn't return, so don't worry about executing additional code.
 					if (e.mFailureMessage)
 						RELEASE_CRASH((e.mFailureMessage));
 					else
 						RELEASE_CRASH(("Uncaught Exception in GameEngine::update"));
 				}
+				catch (const std::exception& e)
+				{
+					// GeneralsX @feature Report the exception type and message instead of
+					// a bare "Uncaught Exception". Freeze the throw-site snapshot first so
+					// the recorder cleanup below cannot overwrite it.
+					CrashDiagFreezeThrowSite();
+
+					static char s_reasonBuf[1024];
+					snprintf(s_reasonBuf, sizeof(s_reasonBuf),
+						"Uncaught Exception in GameEngine::update: type=%s what=\"%s\" (stage: %s, logic frame %u)",
+						CrashDiagDemangle(typeid(e).name()), e.what(),
+						g_crashDiagUpdateStage != nullptr ? g_crashDiagUpdateStage : "(none)",
+						g_crashDiagLogicFrame);
+
+					// try to save info off
+					try
+					{
+						if (TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_RECORD && TheRecorder->isMultiplayer())
+							TheRecorder->cleanUpReplayFile();
+					}
+					catch (...)
+					{
+					}
+					RELEASE_CRASH((s_reasonBuf));
+				}
 				catch (...)
 				{
+					// GeneralsX @feature Freeze the throw-site snapshot before any further code runs.
+					CrashDiagFreezeThrowSite();
+
 					// try to save info off
 					try
 					{

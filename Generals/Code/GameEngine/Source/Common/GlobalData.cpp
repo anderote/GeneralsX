@@ -420,6 +420,12 @@ GlobalData* GlobalData::m_theOriginal = nullptr;
 	{ "HealthBonus_Veteran",				INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_healthBonus[LEVEL_VETERAN]) },
 	{ "HealthBonus_Elite",					INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_healthBonus[LEVEL_ELITE]) },
 	{ "HealthBonus_Heroic",					INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_healthBonus[LEVEL_HEROIC]) },
+	// GeneralsX @feature Extended veterancy: health bonuses for ranks above HEROIC.
+	// Optional in INI; code defaults extrapolate the vanilla 100/120/130/150 curve by +20% per rank.
+	{ "HealthBonus_Heroic2",				INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_healthBonus[LEVEL_HEROIC2]) },
+	{ "HealthBonus_Heroic3",				INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_healthBonus[LEVEL_HEROIC3]) },
+	{ "HealthBonus_Heroic4",				INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_healthBonus[LEVEL_HEROIC4]) },
+	{ "HealthBonus_Heroic5",				INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_healthBonus[LEVEL_HEROIC5]) },
 
 	{ "HumanSoloPlayerHealthBonus_Easy",					INI::parsePercentToReal,			nullptr,			offsetof( GlobalData, m_soloPlayerHealthBonusForDifficulty[PLAYER_HUMAN][DIFFICULTY_EASY] ) },
 	{ "HumanSoloPlayerHealthBonus_Normal",				INI::parsePercentToReal,			nullptr,			offsetof( GlobalData, m_soloPlayerHealthBonusForDifficulty[PLAYER_HUMAN][DIFFICULTY_NORMAL] ) },
@@ -999,6 +1005,15 @@ GlobalData::GlobalData()
 
 	for (i = LEVEL_FIRST; i <= LEVEL_LAST; ++i)
 		m_healthBonus[i] = 1.0f;
+
+	// GeneralsX @feature Extended veterancy: shipped GameData.ini only sets HealthBonus_ for
+	// Veteran/Elite/Heroic (vanilla 120/130/150%). Default the new ranks to a smooth
+	// extrapolation of that curve (+20% of base health per rank): 170/190/210/230%.
+	// Overridable via HealthBonus_Heroic2..HealthBonus_Heroic5 in GameData.ini.
+	m_healthBonus[LEVEL_HEROIC2] = 1.7f;
+	m_healthBonus[LEVEL_HEROIC3] = 1.9f;
+	m_healthBonus[LEVEL_HEROIC4] = 2.1f;
+	m_healthBonus[LEVEL_HEROIC5] = 2.3f;
 
 	for (i = 0; i < PLAYERTYPE_COUNT; ++i)
 	{

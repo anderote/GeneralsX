@@ -631,6 +631,8 @@ protected:
 	static void parsePrerequisites( INI* ini, void *instance, void * /*store*/, const void* /*userData*/ );
 	static void parseModuleName(INI* ini, void *instance, void* /*store*/, const void* userData);
 	static void parseIntList(INI* ini, void *instance, void* store, const void* userData);
+	// GeneralsX @feature Extended veterancy: accepts 1..LEVEL_COUNT values, extrapolates the rest.
+	static void parseVeterancyIntList(INI* ini, void *instance, void* store, const void* userData);
 
 	static void parsePerUnitSounds(INI* ini, void *instance, void* store, const void* userData);
 	static void parsePerUnitFX(INI* ini, void *instance, void* store, const void* userData);

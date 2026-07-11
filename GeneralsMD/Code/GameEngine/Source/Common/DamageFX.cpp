@@ -148,7 +148,10 @@ static void parseCommonStuff(
 	if (names)
 	{
 		vetFirst = (VeterancyLevel)INI::scanIndexList(ini->getNextToken(), names);
-		vetLast = vetFirst;
+		// GeneralsX @feature Extended veterancy: shipped INIs only name levels up to HEROIC.
+		// A HEROIC (or higher) entry extends through LEVEL_LAST so the new ranks inherit the
+		// heroic damage FX; entries below HEROIC keep their exact-level vanilla semantics.
+		vetLast = (vetFirst >= LEVEL_HEROIC) ? LEVEL_LAST : vetFirst;
 	}
 	else
 	{

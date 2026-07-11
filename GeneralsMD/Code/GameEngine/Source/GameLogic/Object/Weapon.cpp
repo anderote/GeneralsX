@@ -94,7 +94,13 @@ static void parsePerVetLevelAsciiString( INI* ini, void* /*instance*/, void * st
 {
 	AsciiString* s = (AsciiString*)store;
 	VeterancyLevel v = (VeterancyLevel)INI::scanIndexList(ini->getNextToken(), TheVeterancyNames);
-	s[v] = ini->getNextAsciiString();
+	AsciiString a = ini->getNextAsciiString();
+	// GeneralsX @feature Extended veterancy: shipped INIs only name levels up to HEROIC.
+	// A HEROIC (or higher) entry extends through LEVEL_LAST so the new ranks keep the
+	// heroic behavior; entries below HEROIC keep their exact-level vanilla semantics.
+	const VeterancyLevel vLast = (v >= LEVEL_HEROIC) ? LEVEL_LAST : v;
+	for (Int i = v; i <= vLast; ++i)
+		s[i] = a;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -114,7 +120,10 @@ static void parsePerVetLevelFXList( INI* ini, void* /*instance*/, void * store, 
 	VeterancyLevel v = (VeterancyLevel)INI::scanIndexList(ini->getNextToken(), TheVeterancyNames);
 	const FXList* fx = nullptr;
 	INI::parseFXList(ini, nullptr, &fx, nullptr);
-	s[v] = fx;
+	// GeneralsX @feature Extended veterancy: HEROIC (or higher) entries extend to LEVEL_LAST.
+	const VeterancyLevel vLast = (v >= LEVEL_HEROIC) ? LEVEL_LAST : v;
+	for (Int i = v; i <= vLast; ++i)
+		s[i] = fx;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -136,7 +145,10 @@ static void parsePerVetLevelPSys( INI* ini, void* /*instance*/, void * store, co
 	VeterancyLevel v = (VeterancyLevel)INI::scanIndexList(ini->getNextToken(), TheVeterancyNames);
 	ConstParticleSystemTemplatePtr pst = nullptr;
 	INI::parseParticleSystemTemplate(ini, nullptr, &pst, nullptr);
-	s[v] = pst;
+	// GeneralsX @feature Extended veterancy: HEROIC (or higher) entries extend to LEVEL_LAST.
+	const VeterancyLevel vLast = (v >= LEVEL_HEROIC) ? LEVEL_LAST : v;
+	for (Int i = v; i <= vLast; ++i)
+		s[i] = pst;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -1892,6 +1904,12 @@ Weapon::~Weapon()
 //-------------------------------------------------------------------------------------------------
 void Weapon::computeBonus(const Object *source, WeaponBonusConditionFlags extraBonusFlags, WeaponBonus& bonus) const
 {
+	m_template->computeBonus(source, extraBonusFlags, bonus);
+}
+
+//-------------------------------------------------------------------------------------------------
+void WeaponTemplate::computeBonus(const Object *source, WeaponBonusConditionFlags extraBonusFlags, WeaponBonus& bonus) const
+{
 	bonus.clear();
 	WeaponBonusConditionFlags flags = source->getWeaponBonusCondition();
 	//CRCDEBUG_LOG(("Weapon::computeBonus() - flags are %X for %s", flags, DescribeObject(source).str()));
@@ -1907,7 +1925,7 @@ void Weapon::computeBonus(const Object *source, WeaponBonusConditionFlags extraB
 
 	if (TheGlobalData->m_weaponBonusSet)
 		TheGlobalData->m_weaponBonusSet->appendBonuses(flags, bonus);
-	const WeaponBonusSet* extra = m_template->getExtraBonus();
+	const WeaponBonusSet* extra = getExtraBonus();
 	if (extra)
 		extra->appendBonuses(flags, bonus);
 }

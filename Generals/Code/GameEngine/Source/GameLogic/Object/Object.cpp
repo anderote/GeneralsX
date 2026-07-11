@@ -2876,41 +2876,58 @@ void Object::onVeterancyLevelChanged( VeterancyLevel oldLevel, VeterancyLevel ne
 	if (body)
 		body->onVeterancyLevelChanged(oldLevel, newLevel, provideFeedback);
 
-	switch (newLevel)
-	{
-		case LEVEL_REGULAR:
-			clearWeaponSetFlag(WEAPONSET_VETERAN);
-			clearWeaponSetFlag(WEAPONSET_ELITE);
-			clearWeaponSetFlag(WEAPONSET_HERO);
-			clearWeaponBonusCondition(WEAPONBONUSCONDITION_VETERAN);
-			clearWeaponBonusCondition(WEAPONBONUSCONDITION_ELITE);
-			clearWeaponBonusCondition(WEAPONBONUSCONDITION_HERO);
-			break;
-		case LEVEL_VETERAN:
-			setWeaponSetFlag(WEAPONSET_VETERAN);
-			clearWeaponSetFlag(WEAPONSET_ELITE);
-			clearWeaponSetFlag(WEAPONSET_HERO);
-			setWeaponBonusCondition(WEAPONBONUSCONDITION_VETERAN);
-			clearWeaponBonusCondition(WEAPONBONUSCONDITION_ELITE);
-			clearWeaponBonusCondition(WEAPONBONUSCONDITION_HERO);
-			break;
-		case LEVEL_ELITE:
-			clearWeaponSetFlag(WEAPONSET_VETERAN);
-			setWeaponSetFlag(WEAPONSET_ELITE);
-			clearWeaponSetFlag(WEAPONSET_HERO);
-			clearWeaponBonusCondition(WEAPONBONUSCONDITION_VETERAN);
-			setWeaponBonusCondition(WEAPONBONUSCONDITION_ELITE);
-			clearWeaponBonusCondition(WEAPONBONUSCONDITION_HERO);
-			break;
-		case LEVEL_HEROIC:
-			clearWeaponSetFlag(WEAPONSET_VETERAN);
-			clearWeaponSetFlag(WEAPONSET_ELITE);
-			setWeaponSetFlag(WEAPONSET_HERO);
-			clearWeaponBonusCondition(WEAPONBONUSCONDITION_VETERAN);
-			clearWeaponBonusCondition(WEAPONBONUSCONDITION_ELITE);
-			setWeaponBonusCondition(WEAPONBONUSCONDITION_HERO);
-			break;
-	}
+	// GeneralsX @feature Extended veterancy: predicate-driven so all 8 levels are handled.
+	// Levels above HEROIC keep using the HEROIC weapon set (no new per-level weapon variants),
+	// and the HERO weapon bonus stays active with HERO2..HERO5 stacking cumulatively on top.
+	if (newLevel == LEVEL_VETERAN)
+		setWeaponSetFlag(WEAPONSET_VETERAN);
+	else
+		clearWeaponSetFlag(WEAPONSET_VETERAN);
+
+	if (newLevel == LEVEL_ELITE)
+		setWeaponSetFlag(WEAPONSET_ELITE);
+	else
+		clearWeaponSetFlag(WEAPONSET_ELITE);
+
+	if (newLevel >= LEVEL_HEROIC)
+		setWeaponSetFlag(WEAPONSET_HERO);
+	else
+		clearWeaponSetFlag(WEAPONSET_HERO);
+
+	if (newLevel == LEVEL_VETERAN)
+		setWeaponBonusCondition(WEAPONBONUSCONDITION_VETERAN);
+	else
+		clearWeaponBonusCondition(WEAPONBONUSCONDITION_VETERAN);
+
+	if (newLevel == LEVEL_ELITE)
+		setWeaponBonusCondition(WEAPONBONUSCONDITION_ELITE);
+	else
+		clearWeaponBonusCondition(WEAPONBONUSCONDITION_ELITE);
+
+	if (newLevel >= LEVEL_HEROIC)
+		setWeaponBonusCondition(WEAPONBONUSCONDITION_HERO);
+	else
+		clearWeaponBonusCondition(WEAPONBONUSCONDITION_HERO);
+
+	if (newLevel >= LEVEL_HEROIC2)
+		setWeaponBonusCondition(WEAPONBONUSCONDITION_HERO2);
+	else
+		clearWeaponBonusCondition(WEAPONBONUSCONDITION_HERO2);
+
+	if (newLevel >= LEVEL_HEROIC3)
+		setWeaponBonusCondition(WEAPONBONUSCONDITION_HERO3);
+	else
+		clearWeaponBonusCondition(WEAPONBONUSCONDITION_HERO3);
+
+	if (newLevel >= LEVEL_HEROIC4)
+		setWeaponBonusCondition(WEAPONBONUSCONDITION_HERO4);
+	else
+		clearWeaponBonusCondition(WEAPONBONUSCONDITION_HERO4);
+
+	if (newLevel >= LEVEL_HEROIC5)
+		setWeaponBonusCondition(WEAPONBONUSCONDITION_HERO5);
+	else
+		clearWeaponBonusCondition(WEAPONBONUSCONDITION_HERO5);
 
 	Bool doAnimation = provideFeedback
 		&& newLevel > oldLevel

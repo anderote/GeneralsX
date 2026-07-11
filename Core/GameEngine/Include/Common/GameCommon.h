@@ -195,18 +195,26 @@ enum
 
 /// Veterancy level define needed by several files that don't need the full Experience code.
 // NOTE NOTE NOTE: Keep TheVeterencyNames in sync with these.
+// GeneralsX @feature Extended veterancy: four ranks above HEROIC (HEROIC2..HEROIC5).
+// Serialized as plain integers, so the pre-existing values (0..3) are unchanged and
+// appending new values keeps old save files loadable. Note that LEVEL_COUNT and
+// LEVEL_INVALID shift value; neither is ever serialized.
 enum VeterancyLevel CPP_11(: Int)
 {
 	LEVEL_REGULAR,
 	LEVEL_VETERAN,
 	LEVEL_ELITE,
 	LEVEL_HEROIC,
+	LEVEL_HEROIC2,
+	LEVEL_HEROIC3,
+	LEVEL_HEROIC4,
+	LEVEL_HEROIC5,
 
 	LEVEL_COUNT,
 	LEVEL_INVALID,
 
 	LEVEL_FIRST = 0,
-	LEVEL_LAST = LEVEL_HEROIC
+	LEVEL_LAST = LEVEL_HEROIC5
 };
 
 // TheVeterancyNames is defined in GameCommon.cpp

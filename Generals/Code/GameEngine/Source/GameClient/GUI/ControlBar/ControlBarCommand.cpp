@@ -957,6 +957,16 @@ const Image* ControlBar::calculateVeterancyOverlayForThing( const ThingTemplate 
 			return m_rankEliteIcon;
 		case LEVEL_HEROIC:
 			return m_rankHeroicIcon;
+		// GeneralsX @feature Extended veterancy: dedicated overlays for the new ranks
+		// (these members fall back to the heroic icon when the art is not shipped).
+		case LEVEL_HEROIC2:
+			return m_rankHeroic2Icon;
+		case LEVEL_HEROIC3:
+			return m_rankHeroic3Icon;
+		case LEVEL_HEROIC4:
+			return m_rankHeroic4Icon;
+		case LEVEL_HEROIC5:
+			return m_rankHeroic5Icon;
 	}
 	return nullptr;
 }
@@ -979,6 +989,16 @@ const Image* ControlBar::calculateVeterancyOverlayForObject( const Object *obj )
 			return m_rankEliteIcon;
 		case LEVEL_HEROIC:
 			return m_rankHeroicIcon;
+		// GeneralsX @feature Extended veterancy: dedicated overlays for the new ranks
+		// (these members fall back to the heroic icon when the art is not shipped).
+		case LEVEL_HEROIC2:
+			return m_rankHeroic2Icon;
+		case LEVEL_HEROIC3:
+			return m_rankHeroic3Icon;
+		case LEVEL_HEROIC4:
+			return m_rankHeroic4Icon;
+		case LEVEL_HEROIC5:
+			return m_rankHeroic5Icon;
 	}
 	return nullptr;
 }

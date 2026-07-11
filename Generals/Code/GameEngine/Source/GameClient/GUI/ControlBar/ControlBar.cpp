@@ -92,6 +92,10 @@ ControlBar *TheControlBar = nullptr;
 const Image* ControlBar::m_rankVeteranIcon	= nullptr;
 const Image* ControlBar::m_rankEliteIcon		= nullptr;
 const Image* ControlBar::m_rankHeroicIcon		= nullptr;
+const Image* ControlBar::m_rankHeroic2Icon	= nullptr;
+const Image* ControlBar::m_rankHeroic3Icon	= nullptr;
+const Image* ControlBar::m_rankHeroic4Icon	= nullptr;
+const Image* ControlBar::m_rankHeroic5Icon	= nullptr;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // CommandButton //////////////////////////////////////////////////////////////////////////////////
@@ -1287,6 +1291,23 @@ void ControlBar::init()
 		m_rankVeteranIcon = TheMappedImageCollection ? TheMappedImageCollection->findImageByName( "SSChevron1L" ) : nullptr;
 		m_rankEliteIcon		= TheMappedImageCollection ? TheMappedImageCollection->findImageByName( "SSChevron2L" ) : nullptr;
 		m_rankHeroicIcon	= TheMappedImageCollection ? TheMappedImageCollection->findImageByName( "SSChevron3L" ) : nullptr;
+
+		// GeneralsX @feature Extended veterancy: dedicated cameo overlays for HEROIC2..HEROIC5
+		// (shipped by a data layer as MappedImages SSChevron4L..SSChevron7L).  Each rank falls
+		// back to the previous rank's icon (ultimately the heroic chevron) when the art is
+		// missing, so the feature is data-optional.
+		m_rankHeroic2Icon = TheMappedImageCollection ? TheMappedImageCollection->findImageByName( "SSChevron4L" ) : nullptr;
+		m_rankHeroic3Icon = TheMappedImageCollection ? TheMappedImageCollection->findImageByName( "SSChevron5L" ) : nullptr;
+		m_rankHeroic4Icon = TheMappedImageCollection ? TheMappedImageCollection->findImageByName( "SSChevron6L" ) : nullptr;
+		m_rankHeroic5Icon = TheMappedImageCollection ? TheMappedImageCollection->findImageByName( "SSChevron7L" ) : nullptr;
+		if( m_rankHeroic2Icon == nullptr )
+			m_rankHeroic2Icon = m_rankHeroicIcon;
+		if( m_rankHeroic3Icon == nullptr )
+			m_rankHeroic3Icon = m_rankHeroic2Icon;
+		if( m_rankHeroic4Icon == nullptr )
+			m_rankHeroic4Icon = m_rankHeroic3Icon;
+		if( m_rankHeroic5Icon == nullptr )
+			m_rankHeroic5Icon = m_rankHeroic4Icon;
 
 
 //		if(!m_controlBarResizer)

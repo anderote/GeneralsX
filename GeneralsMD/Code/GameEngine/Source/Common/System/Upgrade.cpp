@@ -265,14 +265,13 @@ void UpgradeCenter::init()
 //up = newUpgrade("");
 //up->friend_makeVeterancyUpgrade(LEVEL_REGULAR);
 
-	up = newUpgrade("");
-	up->friend_makeVeterancyUpgrade(LEVEL_VETERAN);
-
-	up = newUpgrade("");
-	up->friend_makeVeterancyUpgrade(LEVEL_ELITE);
-
-	up = newUpgrade("");
-	up->friend_makeVeterancyUpgrade(LEVEL_HEROIC);
+	// GeneralsX @feature Extended veterancy: make an upgrade for every level above REGULAR
+	// (Upgrade_Veterancy_VETERAN .. Upgrade_Veterancy_HEROIC5).
+	for (Int level = LEVEL_VETERAN; level <= LEVEL_LAST; ++level)
+	{
+		up = newUpgrade("");
+		up->friend_makeVeterancyUpgrade((VeterancyLevel)level);
+	}
 
 }
 

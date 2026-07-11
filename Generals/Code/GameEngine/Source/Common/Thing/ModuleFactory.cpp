@@ -89,6 +89,7 @@
 #include "GameLogic/Module/EjectPilotDie.h"
 #include "GameLogic/Module/FXListDie.h"
 #include "GameLogic/Module/RebuildHoleExposeDie.h"
+#include "GameLogic/Module/RespawnAtBuildingDie.h"
 #include "GameLogic/Module/SpecialPowerCompletionDie.h"
 #include "GameLogic/Module/UpgradeDie.h"
 #include "GameLogic/Module/KeepObjectDie.h"
@@ -342,6 +343,9 @@ void ModuleFactory::init()
 	addModule( EjectPilotDie );
 	addModule( SpecialPowerCompletionDie );
 	addModule( RebuildHoleExposeDie );
+	// GeneralsX @feature "Edge of Tomorrow" respawn (die module + its countdown proxy update)
+	addModule( RespawnAtBuildingDie );
+	addModule( RespawnMarkerUpdate );
 	addModule( UpgradeDie );
 	addModule( KeepObjectDie );
 

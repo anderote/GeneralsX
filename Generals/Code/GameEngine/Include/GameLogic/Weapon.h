@@ -207,6 +207,16 @@ enum WeaponBonusConditionType CPP_11(: Int)
 	WEAPONBONUSCONDITION_FRENZY_TWO,
 	WEAPONBONUSCONDITION_FRENZY_THREE,
 
+	// GeneralsX @feature Extended veterancy: bonus conditions for ranks above HEROIC.
+	// Appended at the end (values are saved in save files as raw bit flags).
+	// These are cumulative: at LEVEL_HEROIC3, HERO + HERO2 + HERO3 are all set, so
+	// each level's WeaponBonus entry defines the marginal bonus on top of the previous.
+	// NOTE: WeaponBonusConditionFlags is a 32-bit UnsignedInt; count must stay <= 32.
+	WEAPONBONUSCONDITION_HERO2,
+	WEAPONBONUSCONDITION_HERO3,
+	WEAPONBONUSCONDITION_HERO4,
+	WEAPONBONUSCONDITION_HERO5,
+
 	WEAPONBONUSCONDITION_COUNT
 };
 #ifdef DEFINE_WEAPONBONUSCONDITION_NAMES
@@ -244,6 +254,11 @@ static const char *const TheWeaponBonusNames[] =
 	"FRENZY_ONE",
 	"FRENZY_TWO",
 	"FRENZY_THREE",
+
+	"HERO2",
+	"HERO3",
+	"HERO4",
+	"HERO5",
 
 	nullptr
 };
@@ -393,6 +408,13 @@ public:
 		const Coord3D* victimPos,
 		const WeaponBonus& bonus
 	) const;
+
+	// Compute the aggregate weapon bonus produced by the source object's current
+	// weapon bonus condition flags (veterancy, garrison, etc.) plus any extra flags.
+	// This is the same computation performed when a Weapon instance fires
+	// (Weapon::computeBonus delegates here), exposed for modules that fire a
+	// WeaponTemplate directly (e.g. PointDefenseLaserUpdate).
+	void computeBonus(const Object *source, WeaponBonusConditionFlags extraBonusFlags, WeaponBonus& bonus) const;
 
 	Real getAttackRange(const WeaponBonus& bonus) const;
 	Real getUnmodifiedAttackRange() const;
