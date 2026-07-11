@@ -3237,6 +3237,22 @@ void Object::onVeterancyLevelChanged( VeterancyLevel oldLevel, VeterancyLevel ne
 	else
 		clearWeaponBonusCondition(WEAPONBONUSCONDITION_HERO5);
 
+	// GeneralsX @feature vision-scales-with-veterancy (opt-in via VisionBonusFromVeterancy).
+	// Apply the per-rank vision multiplier at rank-change time rather than per-frame (cleaner
+	// and off the hot shroud path). We recompute from the TEMPLATE base each time so it is
+	// idempotent and never compounds across promotions/demotions. Both the sight range and the
+	// shroud-clearing range scale by the same factor so acquisition and reveal stay in step.
+	if (getTemplate()->isVisionBonusFromVeterancy())
+	{
+		const Real visionFactor = TheGlobalData->m_visionBonus[newLevel];
+		Real baseVision = getTemplate()->friend_calcVisionRange();
+		Real baseShroud = getTemplate()->friend_calcShroudClearingRange();
+		if (baseShroud == -1.0f)
+			baseShroud = baseVision;	// same default the constructor uses
+		setVisionRange( baseVision * visionFactor );
+		setShroudClearingRange( baseShroud * visionFactor );
+	}
+
 	Bool doAnimation = provideFeedback
 		&& newLevel > oldLevel
 		&& !isKindOf(KINDOF_IGNORED_IN_GUI)

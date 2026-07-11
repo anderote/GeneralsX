@@ -152,6 +152,8 @@ const FieldParse ThingTemplate::s_objectFieldParseTable[] =
 	{ "ExperienceValue",			ThingTemplate::parseVeterancyIntList,	(void*)0,		offsetof( ThingTemplate, m_experienceValues ) },
 	{ "ExperienceRequired",		ThingTemplate::parseVeterancyIntList,	(void*)1,		offsetof( ThingTemplate, m_experienceRequired ) },
 	{ "IsTrainable",					INI::parseBool,												nullptr,									offsetof( ThingTemplate, m_isTrainable ) },
+	// GeneralsX @feature opt-in: scale this object's VisionRange/ShroudClearingRange with veterancy rank.
+	{ "VisionBonusFromVeterancy", INI::parseBool,											nullptr,									offsetof( ThingTemplate, m_visionBonusFromVeterancy ) },
 	{ "EnterGuard",						INI::parseBool,												nullptr,									offsetof( ThingTemplate, m_enterGuard ) },
 	{ "HijackGuard",					INI::parseBool,												nullptr,									offsetof( ThingTemplate, m_hijackGuard ) },
 
@@ -1071,6 +1073,7 @@ ThingTemplate::ThingTemplate() :
 		m_skillPointValues[levelIndex] = USE_EXP_VALUE_FOR_SKILL_VALUE;
 	}
 	m_isTrainable = FALSE;
+	m_visionBonusFromVeterancy = FALSE;		// GeneralsX @feature default off (opt-in)
 	m_enterGuard = FALSE;
 	m_hijackGuard = FALSE;
 

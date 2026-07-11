@@ -372,6 +372,11 @@ public:
 	Int m_maxFieldParticleCount;			///< maximum number of field-type particles that can exist (roughly)
 	WeaponBonusSet* m_weaponBonusSet;
 	Real m_healthBonus[LEVEL_COUNT];			///< global bonuses to health for veterancy.
+	// GeneralsX @feature opt-in vision-scales-with-veterancy: per-rank multiplier applied to a
+	// unit's VisionRange/ShroudClearingRange, but ONLY for objects that set
+	// VisionBonusFromVeterancy = Yes. Defaults to a modest +10%/rank curve; override with
+	// VisionBonus_Veteran .. VisionBonus_Heroic5 in GameData.ini.
+	Real m_visionBonus[LEVEL_COUNT];			///< per-rank vision multiplier (opt-in per object)
 	Real m_defaultStructureRubbleHeight;	///< for rubbled structures, compress height to this if none specified
 
 	AsciiString m_shellMapName;				///< Holds the shell map name

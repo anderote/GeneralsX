@@ -439,6 +439,14 @@ GlobalData* GlobalData::m_theOriginal = nullptr;
 	{ "HealthBonus_Heroic3",				INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_healthBonus[LEVEL_HEROIC3]) },
 	{ "HealthBonus_Heroic4",				INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_healthBonus[LEVEL_HEROIC4]) },
 	{ "HealthBonus_Heroic5",				INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_healthBonus[LEVEL_HEROIC5]) },
+	// GeneralsX @feature vision-scales-with-veterancy (opt-in per object via VisionBonusFromVeterancy).
+	{ "VisionBonus_Veteran",				INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_visionBonus[LEVEL_VETERAN]) },
+	{ "VisionBonus_Elite",					INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_visionBonus[LEVEL_ELITE]) },
+	{ "VisionBonus_Heroic",					INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_visionBonus[LEVEL_HEROIC]) },
+	{ "VisionBonus_Heroic2",				INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_visionBonus[LEVEL_HEROIC2]) },
+	{ "VisionBonus_Heroic3",				INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_visionBonus[LEVEL_HEROIC3]) },
+	{ "VisionBonus_Heroic4",				INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_visionBonus[LEVEL_HEROIC4]) },
+	{ "VisionBonus_Heroic5",				INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_visionBonus[LEVEL_HEROIC5]) },
 
 	{ "HumanSoloPlayerHealthBonus_Easy",					INI::parsePercentToReal,			nullptr,			offsetof( GlobalData, m_soloPlayerHealthBonusForDifficulty[PLAYER_HUMAN][DIFFICULTY_EASY] ) },
 	{ "HumanSoloPlayerHealthBonus_Normal",				INI::parsePercentToReal,			nullptr,			offsetof( GlobalData, m_soloPlayerHealthBonusForDifficulty[PLAYER_HUMAN][DIFFICULTY_NORMAL] ) },
@@ -1036,6 +1044,18 @@ GlobalData::GlobalData()
 	m_healthBonus[LEVEL_HEROIC3] = 1.9f;
 	m_healthBonus[LEVEL_HEROIC4] = 2.1f;
 	m_healthBonus[LEVEL_HEROIC5] = 2.3f;
+
+	// GeneralsX @feature vision-scales-with-veterancy: modest +10% per rank curve, applied
+	// only to objects that opt in via VisionBonusFromVeterancy = Yes. Overridable per rank in
+	// GameData.ini (VisionBonus_Veteran .. VisionBonus_Heroic5). Regular is always 1.0.
+	m_visionBonus[LEVEL_REGULAR] = 1.0f;
+	m_visionBonus[LEVEL_VETERAN] = 1.1f;
+	m_visionBonus[LEVEL_ELITE]   = 1.2f;
+	m_visionBonus[LEVEL_HEROIC]  = 1.3f;
+	m_visionBonus[LEVEL_HEROIC2] = 1.4f;
+	m_visionBonus[LEVEL_HEROIC3] = 1.5f;
+	m_visionBonus[LEVEL_HEROIC4] = 1.6f;
+	m_visionBonus[LEVEL_HEROIC5] = 1.7f;
 
 	for (i = 0; i < PLAYERTYPE_COUNT; ++i)
 	{
