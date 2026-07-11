@@ -865,6 +865,7 @@ public:
 #endif
 
 	void groupMoveToPosition( const Coord3D *pos, Bool addWaypoint, CommandSourceType cmdSource );
+	void groupMoveToLine( const Coord3D *start, const Coord3D *end, Bool addWaypoint, CommandSourceType cmdSource );	///< GeneralsX @feature line/formation move: spread members along the start->end segment
 	void groupMoveToAndEvacuate( const Coord3D *pos, CommandSourceType cmdSource );			///< move to given position(s)
 	void groupMoveToAndEvacuateAndExit( const Coord3D *pos, CommandSourceType cmdSource );			///< move to given position & unload transport.
 	void groupIdle(CommandSourceType cmdSource);						///< Enter idle state.

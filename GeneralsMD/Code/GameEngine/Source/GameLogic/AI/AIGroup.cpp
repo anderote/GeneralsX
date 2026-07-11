@@ -1792,6 +1792,104 @@ void AIGroup::groupMoveToPosition( const Coord3D *p_posIn, Bool addWaypoint, Com
 }
 
 //-------------------------------------------------------------------------------------------------
+/**
+ * GeneralsX @feature line-move / formation-move (BAR-style): spread the movable members evenly
+ * along the segment start->end. Deterministic - all fan-out math runs in-sim from the two
+ * endpoints. Units are sorted by their projection onto the line (sorted-projection) so their
+ * assigned slots preserve left-to-right order and paths do not cross. With addWaypoint the slot
+ * is queued (aiFollowPathAppend) instead of replacing the current order.
+ */
+struct AIGroupLineSlot { Object *obj; Real t; };
+
+void AIGroup::groupMoveToLine( const Coord3D *startIn, const Coord3D *endIn, Bool addWaypoint, CommandSourceType cmdSource )
+{
+	if (startIn == nullptr || endIn == nullptr)
+		return;
+
+	if (m_dirty)
+		recompute();
+
+	Coord3D start = *startIn;
+	Coord3D end = *endIn;
+
+	// direction of the line (planar)
+	Real dx = end.x - start.x;
+	Real dy = end.y - start.y;
+	Real lineLen = (Real)sqrtf( dx*dx + dy*dy );
+	if (lineLen < 1.0f)
+	{
+		// degenerate line -> ordinary group move to the point
+		groupMoveToPosition( &start, addWaypoint, cmdSource );
+		return;
+	}
+	Real invLen = 1.0f / lineLen;
+	Real dirX = dx * invLen;
+	Real dirY = dy * invLen;
+
+	// collect movable members with their projection t onto the line (same skip filters as
+	// groupMoveToPosition's per-member move loop: held occupants, immobiles, and non-AI units).
+	std::vector<AIGroupLineSlot> members;
+	std::list<Object *>::iterator i;
+	for( i = m_memberList.begin(); i != m_memberList.end(); ++i )
+	{
+		Object *obj = (*i);
+		if (obj->isDisabledByType( DISABLED_HELD ))
+			continue;
+		if (obj->isKindOf( KINDOF_IMMOBILE ))
+			continue;
+		if (obj->getAI() == nullptr)
+			continue;
+		const Coord3D *p = obj->getPosition();
+		AIGroupLineSlot slot;
+		slot.obj = obj;
+		slot.t = (p->x - start.x)*dirX + (p->y - start.y)*dirY;
+		members.push_back( slot );
+	}
+
+	const Int n = (Int)members.size();
+	if (n == 0)
+		return;
+
+	// insertion sort ascending by projection (groups are small; avoids std::sort/comparator deps)
+	for( Int a = 1; a < n; ++a )
+	{
+		AIGroupLineSlot key = members[a];
+		Int b = a - 1;
+		while (b >= 0 && members[b].t > key.t)
+		{
+			members[b+1] = members[b];
+			--b;
+		}
+		members[b+1] = key;
+	}
+
+	// assign evenly-spaced slots start..end in sorted order
+	for( Int idx = 0; idx < n; ++idx )
+	{
+		Object *obj = members[idx].obj;
+		Real frac = (n > 1) ? ((Real)idx / (Real)(n - 1)) : 0.0f;
+
+		Coord3D dest;
+		dest.x = start.x + frac * (end.x - start.x);
+		dest.y = start.y + frac * (end.y - start.y);
+		dest.z = TheTerrainLogic->getLayerHeight( dest.x, dest.y, LAYER_GROUND );
+
+		AIUpdateInterface *ai = obj->getAIUpdateInterface();
+		if (ai && ai->isDoingGroundMovement())
+			TheAI->pathfinder()->adjustDestination( obj, ai->getLocomotorSet(), &dest, nullptr );
+
+		if (ai)
+		{
+			TheAI->pathfinder()->removeGoal( obj );
+			if (addWaypoint)
+				ai->aiFollowPathAppend( &dest, cmdSource );
+			else
+				ai->aiMoveToPosition( &dest, cmdSource );
+		}
+	}
+}
+
+//-------------------------------------------------------------------------------------------------
 // AI Command Interface implementation for AIGroup
 //
 

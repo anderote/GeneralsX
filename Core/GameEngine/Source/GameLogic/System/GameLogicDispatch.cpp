@@ -548,6 +548,19 @@ void GameLogic::logicMessageDispatcher( GameMessage *msg, void *userData )
 			onDoMoveto(msg, currentlySelectedGroup);
 			break;
 		}
+		case GameMessage::MSG_DO_MOVETO_LINE:
+		{
+			// GeneralsX @feature line/formation move: (location start, location end, int shiftDown).
+			if( currentlySelectedGroup )
+			{
+				const Coord3D start = msg->getArgument( 0 )->location;
+				const Coord3D end   = msg->getArgument( 1 )->location;
+				const Bool addWaypoint = (msg->getArgumentCount() >= 3) ? (msg->getArgument( 2 )->integer != 0) : FALSE;
+				currentlySelectedGroup->releaseWeaponLockForGroup(LOCKED_TEMPORARILY);
+				currentlySelectedGroup->groupMoveToLine( &start, &end, addWaypoint, CMD_FROM_PLAYER );
+			}
+			break;
+		}
 		case GameMessage::MSG_ADD_WAYPOINT:
 		{
 			onAddWaypoint(msg, currentlySelectedGroup);

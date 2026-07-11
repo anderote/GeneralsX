@@ -413,3 +413,41 @@ objectID; all follow math runs in-sim. Works with any guard mode
 Files: `Core/.../GUICommandTranslator.cpp` (`doGuardCommand` friendly-unit escort
 path). Uses existing `AIGroup::groupGuardObject` / `AIUpdateInterface::privateGuardObject`
 / the `AIGuardMachine` object-tracking states (unchanged).
+
+## C4. Line-move / formation-move (BAR-style)
+
+A right-button **drag** in ALTERNATE mouse mode lays the selected group out evenly
+along the dragged segment (start -> end), instead of clumping at a point - the
+classic "formation move" from BAR / modern RTS. RMB-drag is otherwise a no-op in
+alternate mode, so there is no conflict.
+
+**Order / determinism:** new networked message **`MSG_DO_MOVETO_LINE`**
+(location start, location end, int shiftDown), appended in the 1000-1999 range next
+to `MSG_DO_MOVETO`. The message carries only the two endpoints + a shift bit; **all
+fan-out math runs in-sim** in `AIGroup::groupMoveToLine`, so it is fully
+deterministic / network-safe. Dispatch: `MSG_DO_MOVETO_LINE` ->
+`groupMoveToLine(start, end, shiftQueue, CMD_FROM_PLAYER)`.
+
+**Slot assignment (`AIGroup::groupMoveToLine`):** collect movable members (same skip
+filters as the per-member move loop: `DISABLED_HELD` occupants, `KINDOF_IMMOBILE`,
+non-AI); project each unit onto the line direction and **sort ascending by that
+projection** (sorted-projection -> assigned slots preserve left-to-right order, so
+paths don't cross); slot i = `start + (i/(N-1))*(end-start)`, clamped to terrain via
+`pathfinder()->adjustDestination`; then `aiMoveToPosition` (or `aiFollowPathAppend`
+when the shift bit queues it). Straight-line v1 (curved formations deferred). Natural
+per-unit facing (explicit perpendicular facing deferred). Degenerate (zero-length)
+drag falls back to an ordinary `groupMoveToPosition`.
+
+Input in alt mode also requires a controllable selection, no active GUI command, and
+not waypoint mode. Shift queues the line as an appended order.
+
+**Deferred:** the live drag **preview** (ghost line + N slot ticks while dragging) is
+not yet drawn - it needs mirrored `InGameUI` state + a `W3DInGameUI::draw()` render in
+both trees (display-only, non-deterministic). The order itself is fully functional;
+the line is applied on button release. Curved formations and explicit facing are also
+deferred.
+
+Files: `Include/Common/MessageStream.h` + `Source/Common/MessageStream.cpp`
+(`MSG_DO_MOVETO_LINE`, both trees), `Core/.../CommandXlat.cpp` (RMB-drag input),
+`Core/.../GameLogicDispatch.cpp` (dispatch), `Include/GameLogic/AI.h` +
+`Source/GameLogic/AI/AIGroup.cpp` (`groupMoveToLine`, both trees).

@@ -53,6 +53,7 @@
 #include "Common/GameLOD.h"
 
 #include "GameClient/InGameUI.h"
+#include "GameClient/Keyboard.h"	// GeneralsX @feature line-move: shift-queue detection
 #include "GameClient/CommandXlat.h"
 #include "GameClient/DebugDisplay.h"
 #include "GameClient/Drawable.h"
@@ -3891,6 +3892,28 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 			if( TheMouse->isClick(&m_mouseRightDragAnchor, &m_mouseRightDragLift, m_mouseRightDown, m_mouseRightUp) )
 			{
 				TheInGameUI->placeBuildAvailable( nullptr, nullptr );
+			}
+			// GeneralsX @feature line-move / formation-move (BAR-style): in ALTERNATE mouse mode a
+			// right-button DRAG (not a click) with a controllable group selected lays the group out
+			// along the dragged segment. RMB-drag is otherwise a no-op in alt mode, so no conflict.
+			else if( TheGlobalData->m_useAlternateMouse
+							&& TheInGameUI->getSelectCount() > 0
+							&& TheInGameUI->areSelectedObjectsControllable()
+							&& TheInGameUI->getGUICommand() == nullptr
+							&& !TheInGameUI->isInWaypointMode() )
+			{
+				Coord3D startPos, endPos;
+				if( TheTacticalView != nullptr
+						&& TheTacticalView->screenToTerrain( &m_mouseRightDragAnchor, &startPos )
+						&& TheTacticalView->screenToTerrain( &m_mouseRightDragLift, &endPos ) )
+				{
+					GameMessage *lineMsg = TheMessageStream->appendMessage( GameMessage::MSG_DO_MOVETO_LINE );
+					lineMsg->appendLocationArgument( startPos );
+					lineMsg->appendLocationArgument( endPos );
+					lineMsg->appendIntegerArgument( (TheKeyboard && TheKeyboard->isShift()) ? 1 : 0 );
+					pickAndPlayUnitVoiceResponse( TheInGameUI->getAllSelectedDrawables(), GameMessage::MSG_DO_MOVETO );
+					disp = DESTROY_MESSAGE;
+				}
 			}
 
 			break;
