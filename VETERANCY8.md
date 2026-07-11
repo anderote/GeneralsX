@@ -119,16 +119,44 @@ Touched files: `Include/GameLogic/Weapon.h`, `Source/GameLogic/Object/Weapon.cpp
 (computeBonus hoisted to `WeaponTemplate`), `Include/GameLogic/Module/PointDefenseLaserUpdate.h`,
 `Source/GameLogic/Object/Update/PointDefenseLaserUpdate.cpp` -- mirrored in both trees.
 
-## Insignia / rank UI decision
+## Insignia / rank UI
 
-- World-space chevrons (`Drawable::s_veterancyImage`): levels 4-7 **reuse the HEROIC
-  `SCVeter3` image**. No new art. `drawVeterancy()` also null-checks, so a missing image
-  can never crash.
+- World-space insignia (`Drawable::s_veterancyImage`, `initStaticImages()`): levels 4-7
+  look up the **new MappedImage names `SCVeter4` .. `SCVeter7`**; each rank falls back to
+  the previous rank's image (ultimately the HEROIC `SCVeter3` chevron) when the art is not
+  shipped, so the art is **data-optional**. `drawVeterancy()` also null-checks, so a
+  missing image can never crash.
 - Control bar rank overlay (`ControlBar::calculateVeterancyOverlayForObject/Thing`):
-  levels above HEROIC return the heroic icon.
+  levels 4-7 look up **`SSChevron4L` .. `SSChevron7L`** (`m_rankHeroic2Icon` ..
+  `m_rankHeroic5Icon`, loaded next to the existing `SSChevron1L..3L`), with the same
+  previous-rank fallback chain ending at the heroic icon.
+- The art itself ships in a **data layer**, not this repo:
+  `generalsx-mods/veterancy-insignia/` builds `zzz-ZZZZZZZVetInsignia.big` containing
+  `Art\Textures\ZZVetInsignia.tga` (256x256 32-bit TGA atlas) and
+  `Data\INI\MappedImages\HandCreated\VeterancyInsignia.INI` (8 new MappedImage blocks;
+  all names and paths are new, nothing shared is overridden). Insignia scheme, composed
+  pixel-exact from the shipped rank art (SCVeter chevrons; the ShockWave-stack SNS cameo
+  chevrons) plus procedurally generated gold stars in the matching palettes:
+  - HEROIC2: gold star above 1 chevron (`SCVeter4` 9x13 px, `SSChevron4L` 120x96 cell)
+  - HEROIC3: gold star above 2 chevrons
+  - HEROIC4: gold star above 3 chevrons
+  - HEROIC5: **double** gold star above 3 chevrons (`SCVeter7` 19x19 px)
 - Promotion audio: ranks above HEROIC reuse `getSoundPromotedHero()`.
 - Promotion FX animation (`m_levelGainAnimationName`) already generic - fires on every
   level-up including the new ones.
+
+## Selected-unit rank/XP readout
+
+When exactly **one** experience-capable unit is selected, the engine draws its rank name
+and raw XP progress against the next-rank threshold (e.g. `Elite 320/750 XP`) underneath
+the health bar (`Drawable::drawVeterancyProgressText`, driven through the same
+text-bearing-drawable path as group-number text). Multi-select shows nothing by design.
+At max rank - or for units that hold a rank but can no longer gain XP - only the rank
+name is shown. Strings go through `TheGameText->fetchOrSubstitute(Format)` with the
+labels `GUI:VeterancyRegular` .. `GUI:VeterancyHeroic5`, `GUI:VeterancyProgress`
+(format `%ls %d/%d XP`) and `GUI:VeterancyRankOnly`, falling back to hardcoded English
+when the labels are absent from the string file - localizable, but no CSF additions are
+required.
 
 ## Veterancy-gated behavior decisions
 

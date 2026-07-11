@@ -293,10 +293,17 @@ const Int MAX_ENABLED_MODULES								= 16;
 	s_veterancyImage[2] = TheMappedImageCollection->findImageByName("SCVeter2");
 	s_veterancyImage[3] = TheMappedImageCollection->findImageByName("SCVeter3");
 
-	// GeneralsX @feature Extended veterancy: ranks above HEROIC reuse the HEROIC chevron
-	// (no new art). drawVeterancy() also tolerates null entries, so this can never crash.
+	// GeneralsX @feature Extended veterancy: dedicated insignia for HEROIC2..HEROIC5 when the
+	// art is present (shipped by a data layer as MappedImages SCVeter4..SCVeter7).  Each rank
+	// falls back to the previous rank's image (ultimately the HEROIC chevron) when missing, so
+	// the feature is data-optional.  drawVeterancy() also tolerates null entries, so this can
+	// never crash.
+	static const char *const extendedVeterancyImageNames[] = { "SCVeter4", "SCVeter5", "SCVeter6", "SCVeter7" };
 	for (Int i = LEVEL_HEROIC + 1; i < LEVEL_COUNT; ++i)
-		s_veterancyImage[i] = s_veterancyImage[LEVEL_HEROIC];
+	{
+		const Image *image = TheMappedImageCollection->findImageByName( extendedVeterancyImageNames[i - (LEVEL_HEROIC + 1)] );
+		s_veterancyImage[i] = image != nullptr ? image : s_veterancyImage[i - 1];
+	}
 
 	s_fullAmmo	= TheMappedImageCollection->findImageByName("SCPAmmoFull");
 	s_emptyAmmo	= TheMappedImageCollection->findImageByName("SCPAmmoEmpty");
