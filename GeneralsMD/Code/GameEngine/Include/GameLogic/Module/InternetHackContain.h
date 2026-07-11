@@ -58,6 +58,9 @@ public:
 	// virtual destructor prototype provided by memory pool declaration
 
 	virtual void onContaining( Object *obj, Bool wasSelected ) override;		///< object now contains 'obj'
+	// GeneralsX @feature this module already auto-starts hacking for its riders; suppress the
+	// base OpenContain hacker auto-trigger so we don't start hacking twice for the same rider.
+	virtual Bool isDedicatedHackContain() const override { return TRUE; }
 
 protected:
 

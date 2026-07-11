@@ -790,6 +790,21 @@ void OpenContain::onContaining( Object *rider, Bool wasSelected )
 		enterSound.setObjectID(getObject()->getID());
 		TheAudio->addAudioEvent(&enterSound);
 	}
+
+	// GeneralsX @feature "hackers hack anywhere": a MONEY_HACKER passenger auto-starts
+	// Internet hacking on entry, so it earns money while garrisoned / bunkered / in a tank
+	// bay / transported - not just inside the dedicated Internet Center. This mirrors
+	// InternetHackContain's behavior for all container types. Income rate is already
+	// contained-aware (HackInternetAIUpdate::getCashUpdateDelay() returns the fast delay
+	// whenever the hacker has a container), so a hacker in any container earns at the
+	// contained "fast" rate for consistency. Suppressed on the dedicated hack container so
+	// hacking is not started twice for the same rider.
+	if( rider != nullptr && rider->isKindOf( KINDOF_MONEY_HACKER ) && !isDedicatedHackContain() )
+	{
+		AIUpdateInterface *riderAI = rider->getAI();
+		if( riderAI != nullptr )
+			riderAI->aiHackInternet( CMD_FROM_AI );
+	}
 }
 
 //-------------------------------------------------------------------------------------------------

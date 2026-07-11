@@ -142,6 +142,13 @@ public:
 
 	virtual void onContaining( Object *obj, Bool wasSelected ) override;		///< object now contains 'obj'
 	virtual void onRemoving( Object *obj ) override;			///< object no longer contains 'obj'
+
+	// GeneralsX @feature "hackers hack anywhere": OpenContain::onContaining auto-starts
+	// Internet hacking for any KINDOF_MONEY_HACKER passenger, so a hacker earns money while
+	// garrisoned/bunkered/transported (not just inside the dedicated Internet Center).
+	// A dedicated hack container (InternetHackContain) already triggers hacking for its
+	// riders, so it overrides this to TRUE to suppress the base auto-trigger (no double-start).
+	virtual Bool isDedicatedHackContain() const { return FALSE; }
 	virtual void onSelling() override;///< Container is being sold.  Open responds by kicking people out
 
 	virtual void orderAllPassengersToExit( CommandSourceType commandSource, Bool instantly ) override; ///< All of the smarts of exiting are in the passenger's AIExit. removeAllFrommContain is a last ditch system call, this is the game Evacuate
