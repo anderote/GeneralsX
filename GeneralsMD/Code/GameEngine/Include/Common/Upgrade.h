@@ -181,6 +181,11 @@ public:
 	const AudioEventRTS* getUnitSpecificSound() const { return &m_unitSpecificSound; }
 	AcademyClassificationType getAcademyClassificationType() const { return m_academyClassificationType; }
 
+	// GeneralsX @feature optional upgrade prerequisites (RequiredUpgrade = <name> [<name> ...]).
+	// The player must own ALL listed upgrades (completed) before this one can be purchased; the
+	// purchase button greys out until then. Empty (the default) means no prerequisite.
+	const std::vector<AsciiString>& getRequiredUpgradeNames() const { return m_requiredUpgradeNames; }
+
 	/// inventory pictures
 	void cacheButtonImage();
 	const Image* getButtonImage() const { return m_buttonImage; }
@@ -210,6 +215,7 @@ protected:
 	AudioEventRTS	m_researchSound;			///< Sound played when upgrade researched.
 	AudioEventRTS	m_unitSpecificSound;	///< Secondary sound played when upgrade researched.
 	AcademyClassificationType m_academyClassificationType; ///< A value used by the academy to evaluate advice based on what players do.
+	std::vector<AsciiString> m_requiredUpgradeNames;	///< GeneralsX @feature prerequisite upgrades that must be owned first
 
 	UpgradeTemplate *m_next;						///< next
 	UpgradeTemplate *m_prev;						///< prev

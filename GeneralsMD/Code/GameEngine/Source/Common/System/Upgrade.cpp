@@ -123,6 +123,8 @@ const FieldParse UpgradeTemplate::m_upgradeFieldParseTable[] =
 	{ "ResearchSound",			INI::parseAudioEventRTS,	nullptr, offsetof( UpgradeTemplate, m_researchSound ) },
 	{ "UnitSpecificSound",	INI::parseAudioEventRTS,	nullptr, offsetof( UpgradeTemplate, m_unitSpecificSound ) },
 	{ "AcademyClassify",		INI::parseIndexList,			TheAcademyClassificationTypeNames, offsetof( UpgradeTemplate, m_academyClassificationType ) },
+	// GeneralsX @feature optional upgrade prerequisites; player must own all listed upgrades first.
+	{ "RequiredUpgrade",		INI::parseAsciiStringVector, nullptr, offsetof( UpgradeTemplate, m_requiredUpgradeNames ) },
 	{ nullptr,						nullptr,												 nullptr, 0 }
 
 };
@@ -452,7 +454,32 @@ Bool UpgradeCenter::canAffordUpgrade( Player *player, const UpgradeTemplate *upg
 		return FALSE;
 	}
 
-	/// @todo maybe have prereq checks for upgrades???
+	// GeneralsX @feature RequiredUpgrade prerequisites: the player must own every listed
+	// upgrade (completed) before this one becomes available. This single check is the funnel
+	// for both the client cameo greying (ControlBarCommand) and the logic-side purchase gate
+	// (ProductionUpdate / command processing), so a prereq-blocked upgrade both greys out and
+	// cannot be researched. Empty list (default) => no prerequisite, stock behavior.
+	const std::vector<AsciiString>& requiredUpgrades = upgradeTemplate->getRequiredUpgradeNames();
+	for( std::vector<AsciiString>::const_iterator it = requiredUpgrades.begin(); it != requiredUpgrades.end(); ++it )
+	{
+		const UpgradeTemplate *prereq = findUpgrade( *it );
+		if( prereq == nullptr )
+		{
+			// misconfigured data: name a prerequisite that doesn't exist -> block (fail safe)
+			DEBUG_CRASH( ("canAffordUpgrade: upgrade '%s' lists unknown RequiredUpgrade '%s'",
+				upgradeTemplate->getUpgradeName().str(), (*it).str()) );
+			return FALSE;
+		}
+
+		if( !player->hasUpgradeComplete( prereq ) )
+		{
+			if( displayReason )
+			{
+				TheInGameUI->message( "GUI:UpgradePrerequisiteNotMet" );
+			}
+			return FALSE;
+		}
+	}
 
 	return TRUE;  // all is well
 
