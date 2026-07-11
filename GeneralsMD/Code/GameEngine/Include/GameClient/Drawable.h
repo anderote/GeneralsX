@@ -719,6 +719,7 @@ private:
 	DisplayString*			m_constructDisplayString;  ///< string to display construction % complete
 	DisplayString*			m_captionDisplayString;		///< string to display caption
 	DisplayString*			m_groupNumber;						///< string to display the group number of this drawable
+	DisplayString*			m_veterancyProgressString;///< GeneralsX @feature rank/XP readout for the single selected unit
 
 	UnsignedInt					m_expirationDate;		///< if nonzero, Drawable should destroy itself at this frame
 	DrawableIconInfo*		m_iconInfo;					///< lazily allocated!
@@ -758,6 +759,8 @@ private:
 	// "icon" drawing methods **************
 	void drawConstructPercent( const IRegion2D *healthBarRegion );  ///< display % construction complete
 	void drawCaption( const IRegion2D *healthBarRegion );						///< draw caption
+	Bool wantsVeterancyProgressText() const;													///< GeneralsX @feature should we show the rank/XP readout?
+	void drawVeterancyProgressText( const IRegion2D *healthBarRegion );///< GeneralsX @feature draw rank name + XP progress
 	void drawAmmo( const IRegion2D *healthBarRegion );							///< draw icons
 	void drawContained( const IRegion2D *healthBarRegion );					///< draw icons
 	void drawVeterancy( const IRegion2D *healthBarRegion );					///< draw veterency information

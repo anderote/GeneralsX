@@ -468,6 +468,7 @@ Drawable::Drawable( const ThingTemplate *thingTemplate, DrawableStatusBits statu
 
 	m_groupNumber = nullptr;
 	m_captionDisplayString = nullptr;
+	m_veterancyProgressString = nullptr;
 	m_drawableInfo.m_drawable = this;
 	m_drawableInfo.m_ghostObject = nullptr;
 
@@ -494,6 +495,10 @@ Drawable::~Drawable()
 	if ( m_captionDisplayString )
 		TheDisplayStringManager->freeDisplayString( m_captionDisplayString );
 	m_captionDisplayString = nullptr;
+
+	if ( m_veterancyProgressString )
+		TheDisplayStringManager->freeDisplayString( m_veterancyProgressString );
+	m_veterancyProgressString = nullptr;
 
 	m_groupNumber = nullptr;
 
@@ -2279,7 +2284,33 @@ Bool Drawable::drawsAnyUIText()
 	if ( obj->getFormationID() != NO_FORMATION_ID )
 		return TRUE;
 
+	// GeneralsX @feature Veterancy progress readout for the single selected unit
+	if ( wantsVeterancyProgressText() )
+		return TRUE;
+
 	return FALSE;
+}
+
+// ------------------------------------------------------------------------------------------------
+/** GeneralsX @feature Should this drawable show the veterancy rank/XP readout?  Only for the
+	* single selected unit (multi-select intentionally shows nothing) that either can still gain
+	* experience or has already earned a rank.  Selection and local-player ownership are already
+	* guaranteed by the drawsAnyUIText() caller. */
+// ------------------------------------------------------------------------------------------------
+Bool Drawable::wantsVeterancyProgressText() const
+{
+	if( TheInGameUI->getSelectCount() != 1 )
+		return FALSE;
+
+	const Object *obj = getObject();
+	if( obj == nullptr )
+		return FALSE;
+
+	const ExperienceTracker *xpTracker = obj->getExperienceTracker();
+	if( xpTracker == nullptr )
+		return FALSE;
+
+	return xpTracker->isTrainable() || xpTracker->getVeterancyLevel() > LEVEL_REGULAR;
 }
 
 
@@ -2713,7 +2744,79 @@ void Drawable::drawUIText()
 
 	}
 
+	// GeneralsX @feature Veterancy progress readout for the single selected unit
+	if ( wantsVeterancyProgressText() )
+		drawVeterancyProgressText( healthBarRegion );
+}
 
+// ------------------------------------------------------------------------------------------------
+/** GeneralsX @feature Draw the veterancy rank name and raw experience progress (e.g.
+	* "Elite 320/750 XP") underneath the health bar of the single selected experience-gaining
+	* unit.  Experience is tracked in raw points (see ExperienceTracker::addExperiencePoints),
+	* so the honest metric is XP against the template's next-rank threshold.
+	* Rank names are fetched through localizable labels with hardcoded English fallbacks, so no
+	* string-file (CSF) additions are required for the text to read correctly. */
+// ------------------------------------------------------------------------------------------------
+void Drawable::drawVeterancyProgressText( const IRegion2D *healthBarRegion )
+{
+	const Object *obj = getObject();
+	const ExperienceTracker *xpTracker = obj->getExperienceTracker();
+	VeterancyLevel level = xpTracker->getVeterancyLevel();
+
+	static const Char *const rankLabels[LEVEL_COUNT] =
+	{
+		"GUI:VeterancyRegular", "GUI:VeterancyVeteran", "GUI:VeterancyElite", "GUI:VeterancyHeroic",
+		"GUI:VeterancyHeroic2", "GUI:VeterancyHeroic3", "GUI:VeterancyHeroic4", "GUI:VeterancyHeroic5"
+	};
+	static const WideChar *const rankFallbacks[LEVEL_COUNT] =
+	{
+		L"Regular", L"Veteran", L"Elite", L"Heroic",
+		L"Heroic 2", L"Heroic 3", L"Heroic 4", L"Heroic 5"
+	};
+
+	UnicodeString rankName = TheGameText->fetchOrSubstitute( rankLabels[level], rankFallbacks[level] );
+
+	UnicodeString text;
+	if( level < LEVEL_LAST && xpTracker->isTrainable() )
+	{
+		text = TheGameText->fetchOrSubstituteFormat( "GUI:VeterancyProgress", L"%ls %d/%d XP",
+			rankName.str(),
+			xpTracker->getCurrentExperience(),
+			obj->getTemplate()->getExperienceRequired( level + 1 ) );
+	}
+	else if( level > LEVEL_REGULAR )
+	{
+		// max rank, or a unit that can no longer gain experience: just show the earned rank
+		text = TheGameText->fetchOrSubstituteFormat( "GUI:VeterancyRankOnly", L"%ls",
+			rankName.str() );
+	}
+	else
+	{
+		// regular and unable to gain experience: nothing worth showing
+		return;
+	}
+
+	if( m_veterancyProgressString == nullptr )
+	{
+		m_veterancyProgressString = TheDisplayStringManager->newDisplayString();
+		GameFont *font = TheFontLibrary->getFont(
+			TheInGameUI->getDrawableCaptionFontName(),
+			TheGlobalLanguageData->adjustFontSize(TheInGameUI->getDrawableCaptionPointSize()),
+			TheInGameUI->isDrawableCaptionBold() );
+		m_veterancyProgressString->setFont( font );
+	}
+
+	// only re-render the string when the value actually changes
+	if( m_veterancyProgressString->getText().compare( text ) != 0 )
+		m_veterancyProgressString->setText( text );
+
+	// centered underneath the health bar
+	Int xPos = healthBarRegion->lo.x
+		+ (healthBarRegion->width() - m_veterancyProgressString->getWidth()) / 2;
+	Int yPos = healthBarRegion->hi.y + 1;
+
+	m_veterancyProgressString->draw( xPos, yPos,
+		TheInGameUI->getDrawableCaptionColor(), GameMakeColor( 0, 0, 0, 255 ) );
 }
 
 // ------------------------------------------------------------------------------------------------
