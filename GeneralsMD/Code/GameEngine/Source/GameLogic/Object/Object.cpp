@@ -3915,9 +3915,21 @@ void Object::friend_adjustPowerForPlayer( Bool incoming )
 //-------------------------------------------------------------------------------------------------
 void Object::onDisabledEdge(Bool becomingDisabled)
 {
-	// rip through the behavior modules and call the onDisabledEdge for any modules that care
-	for( BehaviorModule **module = m_behaviors; *module; ++module )
-		(*module)->onDisabledEdge( becomingDisabled );
+	// GeneralsX @bugfix null-deref (SIGSEGV far=0x0) during container-death rider cleanup.
+	// When a container (garrisoned building / transport / bunker) dies, OpenContain::onDie ->
+	// processDamageToContained -> TransportContain::onRemoving calls rider->clearDisabled(
+	// DISABLED_HELD), which can transition a disabled edge and reach here. If that rider was
+	// ALSO destroyed in the same damage event (dense garrison + AoE/chain-lightning killing the
+	// bay and its passengers at once), its destructor has already run `delete[] m_behaviors;
+	// m_behaviors = nullptr`, so the un-guarded `*module` read faulted at address 0. Guard the
+	// iteration: a live or merely effectively-dead object still has a valid m_behaviors and runs
+	// exactly as before; only a fully torn-down rider no-ops. Deterministic (no live-case change).
+	if( m_behaviors )
+	{
+		// rip through the behavior modules and call the onDisabledEdge for any modules that care
+		for( BehaviorModule **module = m_behaviors; *module; ++module )
+			(*module)->onDisabledEdge( becomingDisabled );
+	}
 
 	DozerAIInterface *dozerAI = getAI() ? getAI()->getDozerAIInterface() : nullptr;
 	if (dozerAI)
