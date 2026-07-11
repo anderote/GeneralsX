@@ -390,3 +390,26 @@ Files: `Include/GameLogic/AI.h` (`UnitStance` enum + `groupSetStance` decl),
 `Source/GameLogic/Object/Update/ProductionUpdate.cpp` (`DefaultUnitStance`),
 `Core/.../GameLogicDispatch.cpp` (dispatch). Generals tree: `MessageStream.*`, `AI.h`,
 `AIGroup.cpp` minimal mirror (no-op `groupSetStance`).
+
+## C3. Guard a moving unit (escort)
+
+The guard cursor placed directly over a **friendly mobile unit** now issues a
+guard-**object** order (escort) instead of the vanilla position-locked
+guard-**position** snapshot: the guards follow and defend that unit as it moves
+(artillery-with-escorts). The guard state machine already tracks a moving guardee -
+`AIGuardIdleState::update` re-reads the target's position each scan and, when it has
+moved past ~2 pathfind cells, transitions to `AIGuardReturnState` to catch up, while
+the inner/outer/attack states re-read the live target position on entry - so this is
+purely an **input** change that unlocks the existing engine capability.
+
+Semantics: a friendly (own or allied, `getRelationship == ALLIES`) target that has an
+`AIUpdateInterface` and is **not** a `KINDOF_STRUCTURE` triggers `MSG_DO_GUARD_OBJECT`
+(objectID + guardMode). Guarding a building or empty ground still falls through to
+`MSG_DO_GUARD_POSITION` (unchanged). Deterministic - the message carries the target's
+objectID; all follow math runs in-sim. Works with any guard mode
+(`NORMAL`/`WITHOUT_PURSUIT`/`FLYING_UNITS_ONLY`). No INI; no data changes required
+(applies to the stock Guard command button).
+
+Files: `Core/.../GUICommandTranslator.cpp` (`doGuardCommand` friendly-unit escort
+path). Uses existing `AIGroup::groupGuardObject` / `AIUpdateInterface::privateGuardObject`
+/ the `AIGuardMachine` object-tracking states (unchanged).

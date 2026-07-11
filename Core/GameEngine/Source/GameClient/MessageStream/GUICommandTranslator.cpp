@@ -226,6 +226,32 @@ static CommandStatus doGuardCommand( const CommandButton *command, GuardMode gua
 		}
 	}
 
+	// GeneralsX @feature guard a moving unit (escort): even for the standard position-guard
+	// button, if the cursor is directly over a FRIENDLY MOBILE unit, issue a guard-OBJECT order
+	// so the guards follow & defend it as it moves (artillery-with-escorts), instead of the
+	// vanilla position-locked guard-POSITION snapshot. The guard state machine already tracks a
+	// moving guardee (AIGuardIdleState re-reads the target position and moves to catch up). We
+	// require a friendly (own/allied) target with an AIUpdate and not a structure, so guarding a
+	// building or empty ground still falls through to guard-position below.
+	if( msg == nullptr )
+	{
+		Drawable *escortPick = TheTacticalView->pickDrawable( mouse, FALSE, PICK_TYPE_SELECTABLE );
+		Object *escortObj = escortPick ? escortPick->getObject() : nullptr;
+		if( escortObj && !escortObj->isEffectivelyDead() &&
+				escortObj->getAIUpdateInterface() != nullptr &&
+				!escortObj->isKindOf( KINDOF_STRUCTURE ) )
+		{
+			Player *localPlayer = ThePlayerList->getLocalPlayer();
+			if( localPlayer && localPlayer->getRelationship( escortObj->getTeam() ) == ALLIES )
+			{
+				msg = TheMessageStream->appendMessage( GameMessage::MSG_DO_GUARD_OBJECT );
+				msg->appendObjectIDArgument( escortObj->getID() );
+				msg->appendIntegerArgument(guardMode);
+				pickAndPlayUnitVoiceResponse(TheInGameUI->getAllSelectedDrawables(), GameMessage::MSG_DO_GUARD_OBJECT);
+			}
+		}
+	}
+
 	if(  msg == nullptr )
 	{
 		Coord3D world;
