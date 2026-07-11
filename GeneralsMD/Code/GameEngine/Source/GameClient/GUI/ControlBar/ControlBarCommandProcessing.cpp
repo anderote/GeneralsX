@@ -446,24 +446,60 @@ CBCommandStatus ControlBar::processCommandUI( GameWindow *control,
 			// vehicles. Deterministic: we just issue N ordinary MSG_QUEUE_UNIT_CREATE
 			// messages, re-checking canMakeUnit before each so we stop cleanly when the
 			// queue fills, money runs out, or the per-player cap is hit (the first unit
-			// was already validated above). The first message uses the productionID we
-			// implicitly derive below; each subsequent unit gets its own unique id.
+			// was already validated above). Each unit gets its own unique production id.
 			const Int SHIFT_QUEUE_COUNT = 5;
 			Int unitsToQueue = TheKeyboard->isShift() ? SHIFT_QUEUE_COUNT : 1;
 
-			for( Int queued = 0; queued < unitsToQueue; ++queued )
+			// GeneralsX @feature multi-select bulk build: fan the queue out to EVERY
+			// selected building that can produce this thing (e.g. select 5 Barracks, click
+			// a unit -> all 5 queue it). We gather the compatible factories from the current
+			// selection; each queue message carries an explicit producer objectID so the
+			// logic layer routes it to the right building (instead of the single "primary").
+			// Deterministic & network-safe: still just N ordinary MSG_QUEUE_UNIT_CREATE
+			// messages, re-validated per producer at execution.
+			std::vector<Object *> factories;
+			const DrawableList *selectedDrawables = TheInGameUI->getAllSelectedDrawables();
+			if( selectedDrawables )
 			{
-				// the first unit already passed canMakeUnit above; re-validate the rest
-				if( queued > 0 && TheBuildAssistant->canMakeUnit(factory, whatToBuild) != CANMAKE_OK )
-					break;
+				for( DrawableListCIt it = selectedDrawables->begin(); it != selectedDrawables->end(); ++it )
+				{
+					Object *cand = (*it) ? (*it)->getObject() : nullptr;
+					if( cand == nullptr || cand == factory )
+						continue;
+					if( cand->getProductionUpdateInterface() == nullptr )
+						continue;
+					if( TheBuildAssistant->canMakeUnit( cand, whatToBuild ) != CANMAKE_OK )
+						continue;
+					factories.push_back( cand );
+				}
+			}
+			// the primary factory (already validated above) is always first
+			factories.insert( factories.begin(), factory );
 
-				// get a new production id to assign to this
-				ProductionID productionID = pu->requestUniqueUnitID();
+			for( std::vector<Object *>::iterator fit = factories.begin(); fit != factories.end(); ++fit )
+			{
+				Object *fac = *fit;
+				ProductionUpdateInterface *facPU = fac->getProductionUpdateInterface();
+				if( facPU == nullptr )
+					continue;
 
-				// create a message to build this thing
-				GameMessage *msg = TheMessageStream->appendMessage( GameMessage::MSG_QUEUE_UNIT_CREATE );
-				msg->appendIntegerArgument( whatToBuild->getTemplateID() );
-				msg->appendIntegerArgument( productionID );
+				for( Int queued = 0; queued < unitsToQueue; ++queued )
+				{
+					// the primary factory's first unit already passed canMakeUnit above;
+					// re-validate every other (factory, unit) pair
+					if( ( fac != factory || queued > 0 ) &&
+							TheBuildAssistant->canMakeUnit( fac, whatToBuild ) != CANMAKE_OK )
+						break;
+
+					// get a new production id to assign to this (unique per producer)
+					ProductionID productionID = facPU->requestUniqueUnitID();
+
+					// create a message to build this thing at this specific producer
+					GameMessage *msg = TheMessageStream->appendMessage( GameMessage::MSG_QUEUE_UNIT_CREATE );
+					msg->appendIntegerArgument( whatToBuild->getTemplateID() );
+					msg->appendIntegerArgument( productionID );
+					msg->appendObjectIDArgument( fac->getID() );
+				}
 			}
 
 			break;

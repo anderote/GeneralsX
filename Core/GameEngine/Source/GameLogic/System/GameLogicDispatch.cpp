@@ -1819,17 +1819,33 @@ bool GameLogic::onCancelUpgrade(MAYBE_UNUSED GameMessage *msg, AIGroupPtr &curre
 
 bool GameLogic::onQueueUnitCreate(MAYBE_UNUSED GameMessage *msg, AIGroupPtr &currentlySelectedGroup)
 {
-#if RETAIL_COMPATIBLE_AIGROUP
-	Object *producer = getSingleObjectFromSelection(currentlySelectedGroup);
-#else
-	Object *producer = getSingleObjectFromSelection(currentlySelectedGroup.Peek());
-#endif
 	const ThingTemplate *whatToCreate;
 	ProductionID productionID;
 
 	// get data from the message
 	whatToCreate = TheThingFactory->findByTemplateID( msg->getArgument( 0 )->integer );
 	productionID = (ProductionID)msg->getArgument( 1 )->integer;
+
+	// GeneralsX @feature multi-select bulk build: when the client fans a queue out to
+	// several selected factories it appends an explicit producer objectID (3rd arg) so
+	// each message routes to the correct building. Validate it is owned by the message
+	// player (anti-exploit) before honoring it; otherwise fall back to the single-object
+	// selection path (retail behavior, still used by any single-arg sender).
+	Object *producer = nullptr;
+	if( msg->getArgumentCount() >= 3 )
+	{
+		producer = findObjectByID( msg->getArgument( 2 )->objectID );
+		if( producer != nullptr && producer->getControllingPlayer() != getMessagePlayer(msg) )
+			producer = nullptr;
+	}
+	else
+	{
+#if RETAIL_COMPATIBLE_AIGROUP
+		producer = getSingleObjectFromSelection(currentlySelectedGroup);
+#else
+		producer = getSingleObjectFromSelection(currentlySelectedGroup.Peek());
+#endif
+	}
 
 	// sanity
 	if ( producer == nullptr || whatToCreate == nullptr )
