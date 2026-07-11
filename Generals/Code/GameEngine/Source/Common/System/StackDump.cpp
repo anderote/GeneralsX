@@ -636,6 +636,95 @@ void DumpExceptionInfo( unsigned int u, EXCEPTION_POINTERS* e_info )
 
 #pragma pack(pop)
 
+#elif defined(__APPLE__) || defined(__GLIBC__)
+
+// GeneralsX @feature Real (previously stubbed) stack capture on macOS/Linux via
+// execinfo, so ReleaseCrashInfo.txt contains an actual backtrace instead of nothing.
+
+#include <execinfo.h>
+#include <cxxabi.h>
+#include <cstring>
+#include <cstdlib>
+
+AsciiString g_LastErrorDump;
+
+void FillStackAddresses(void** addresses, unsigned int count, unsigned int skip)
+{
+	memset(addresses, 0, count * sizeof(void*));
+
+	const unsigned int MAX_RAW = 64;
+	void* raw[MAX_RAW];
+	unsigned int want = count + skip + 1; // +1 for this function's own frame
+	if (want > MAX_RAW)
+		want = MAX_RAW;
+
+	int depth = backtrace(raw, (int)want);
+
+	unsigned int out = 0;
+	for (unsigned int i = skip + 1; (int)i < depth && out < count; ++i)
+		addresses[out++] = raw[i];
+}
+
+void StackDumpFromAddresses(void** addresses, unsigned int count, void (*callback)(const char*))
+{
+	if (callback == nullptr)
+		return;
+
+	// Trim trailing null entries.
+	unsigned int depth = 0;
+	while (depth < count && addresses[depth] != nullptr)
+		++depth;
+	if (depth == 0)
+	{
+		callback("  (no stack addresses captured)");
+		return;
+	}
+
+	char** symbols = backtrace_symbols(addresses, (int)depth);
+	char line[1024];
+	for (unsigned int i = 0; i < depth; ++i)
+	{
+		if (symbols != nullptr && symbols[i] != nullptr)
+		{
+			// Append a demangled name when one can be extracted.
+			const char* mangled = strstr(symbols[i], "_Z");
+			const char* demangled = nullptr;
+			char token[512];
+			if (mangled != nullptr)
+			{
+				size_t len = strcspn(mangled, " \t+");
+				if (len > 0 && len < sizeof(token))
+				{
+					memcpy(token, mangled, len);
+					token[len] = 0;
+					int status = -1;
+					char* dm = abi::__cxa_demangle(token, nullptr, nullptr, &status);
+					if (status == 0 && dm != nullptr)
+					{
+						snprintf(line, sizeof(line), "  %s  [%s]", symbols[i], dm);
+						demangled = line;
+					}
+					if (dm != nullptr)
+						free(dm);
+				}
+			}
+			if (demangled == nullptr)
+				snprintf(line, sizeof(line), "  %s", symbols[i]);
+			callback(line);
+		}
+		else
+		{
+			snprintf(line, sizeof(line), "  %p", addresses[i]);
+			callback(line);
+		}
+	}
+	if (symbols != nullptr)
+		free(symbols);
+}
+
+void DumpExceptionInfo(unsigned int u, EXCEPTION_POINTERS* e_info) {}
+void GetFunctionDetails(void *pointer, char*name, char*filename, unsigned int* linenumber, unsigned int* address) {}
+
 #else
 
 // Non-Windows or non-debug stubs

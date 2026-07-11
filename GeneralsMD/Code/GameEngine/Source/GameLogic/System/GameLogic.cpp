@@ -29,6 +29,9 @@
 
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 
+// GeneralsX @feature For crash-diagnostic module type names (typeid).
+#include <typeinfo>
+
 #ifndef _WIN32
 #include <fenv.h>
 #if defined(__SSE__) || defined(__x86_64__)
@@ -3769,6 +3772,10 @@ void GameLogic::update()
 
 	setFPMode();
 
+	// GeneralsX @feature Crash diagnostics: record the logic frame and the
+	// sub-stage of GameLogic::update currently executing (plain stores only).
+	g_crashDiagLogicFrame = m_frame;
+
 	/// @todo remove this hack
 	if ( m_startNewGame && !TheDisplay->isMoviePlaying())
 	{
@@ -3782,6 +3789,7 @@ void GameLogic::update()
 #ifdef RTS_PROFILE_LEGACY
     Profile::StartRange("map_load");
 #endif
+		g_crashDiagUpdateStage = "GameLogic: startNewGame (map load)";
 		startNewGame( FALSE );
 #ifdef RTS_PROFILE_LEGACY
     Profile::StopRange("map_load");
@@ -3811,12 +3819,14 @@ void GameLogic::update()
 
 	// update (execute) scripts
 	{
+		g_crashDiagUpdateStage = "GameLogic: TheScriptEngine->update";
 		TheScriptEngine->UPDATE();
 	}
 
 	// Note - TerrainLogic update needs to happen after ScriptEngine update, but before object updates.  jba.
 	// This way changes in bridges are noted in the script engine before being cleared in TerrainLogic->update
 	{
+		g_crashDiagUpdateStage = "GameLogic: TheTerrainLogic->update";
 		TheTerrainLogic->UPDATE();
 	}
 
@@ -3834,6 +3844,7 @@ void GameLogic::update()
 
 	if (generateForSolo || generateForMP)
 	{
+		g_crashDiagUpdateStage = "GameLogic: CRC generation";
 		m_CRC = getCRC( CRC_RECALC );
 		bool isPlayback = (TheRecorder && TheRecorder->isPlaybackMode());
 
@@ -3860,11 +3871,13 @@ void GameLogic::update()
 
 	// Update the Recorder
 	{
+		g_crashDiagUpdateStage = "GameLogic: TheRecorder->update";
 		TheRecorder->UPDATE();
 	}
 
 	// process client commands
 	{
+		g_crashDiagUpdateStage = "GameLogic: processCommandList";
 		processCommandList( TheCommandList );
 	}
 
@@ -3902,6 +3915,7 @@ void GameLogic::update()
 #endif
 
 	{
+		g_crashDiagUpdateStage = "GameLogic: sleepy module updates";
 		while (!m_sleepyUpdates.empty())
 		{
 			UpdateModulePtr u = peekSleepyUpdate();
@@ -3937,6 +3951,17 @@ void GameLogic::update()
 				//DEBUG_LOG(("calling update %08lx (%d %d)...",update,update->friend_getNextCallFrame(),update->friend_getNextCallPhase()));
 				m_curUpdateModule = u;
 
+				// GeneralsX @feature Crash diagnostics: remember which object/module is
+				// updating so an uncaught exception can name the culprit. Two pointer
+				// stores per module update; the template name storage is process-lifetime.
+				{
+					const Object* diagObj = u->friend_getObject();
+					g_crashDiagObjectTemplate = (diagObj != nullptr && diagObj->getTemplate() != nullptr)
+						? diagObj->getTemplate()->getName().str()
+						: "(no template)";
+					g_crashDiagObjectModule = typeid(*u).name();
+				}
+
 				sleepLen = u->update();
 				DEBUG_ASSERTCRASH(sleepLen > 0, ("you may not return 0 from update"));
 				if (sleepLen < 1)
@@ -3956,16 +3981,19 @@ void GameLogic::update()
 
 	// update the Artificial Intelligence system
 	{
+		g_crashDiagUpdateStage = "GameLogic: TheAI->update";
 		TheAI->UPDATE();
 	}
 
 	// production updates
 	{
+		g_crashDiagUpdateStage = "GameLogic: TheBuildAssistant->update";
 		TheBuildAssistant->UPDATE();
 	}
 
 	// update partition info
 	{
+		g_crashDiagUpdateStage = "GameLogic: ThePartitionManager->update";
 		ThePartitionManager->UPDATE();
 	}
 
@@ -3974,17 +4002,23 @@ void GameLogic::update()
 	//
 
 	// destroy all pending objects
+	g_crashDiagUpdateStage = "GameLogic: processDestroyList";
 	processDestroyList();
 
 	// reset the command list, destroying all messages
+	g_crashDiagUpdateStage = "GameLogic: TheCommandList->reset";
 	TheCommandList->reset();
 
+	g_crashDiagUpdateStage = "GameLogic: TheWeaponStore->update";
 	TheWeaponStore->UPDATE();
+	g_crashDiagUpdateStage = "GameLogic: TheLocomotorStore->update";
 	TheLocomotorStore->UPDATE();
+	g_crashDiagUpdateStage = "GameLogic: TheVictoryConditions->update";
 	TheVictoryConditions->UPDATE();
 
 	{
 		//Handle disabled statii (and re-enable objects once frame matches)
+		g_crashDiagUpdateStage = "GameLogic: checkDisabledStatus sweep";
 		for( Object *obj = m_objList; obj; obj = obj->getNextObject() )
 		{
 			if( obj->isDisabled() )

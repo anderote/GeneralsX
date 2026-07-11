@@ -217,6 +217,32 @@ DEBUG_EXTERN_C void ReleaseCrashLocalized(const AsciiString& p, const AsciiStrin
 #define RELEASE_CRASH(m)				do { ReleaseCrash(m); } while (0)
 #define RELEASE_CRASHLOCALIZED(p, m)		do { ReleaseCrashLocalized(p, m); } while (0)
 
+// ----------------------------------------------------------------------------
+// GeneralsX @feature Crash diagnostics for uncaught exceptions in the engine
+// update loop. The update path performs plain pointer/integer stores into these
+// globals (near-zero overhead); they are only read when a release crash is
+// being reported, where they are written to ReleaseCrashInfo.txt and stderr.
+// ----------------------------------------------------------------------------
+
+// Which engine/logic update stage is currently executing (points to a string literal).
+extern const char* g_crashDiagUpdateStage;
+// Thing template name of the object whose update module last ran (points into the
+// template's own name storage, which lives for the duration of the process).
+extern const char* g_crashDiagObjectTemplate;
+// RTTI (mangled) class name of the update module that last ran (static storage).
+extern const char* g_crashDiagObjectModule;
+// GameLogic frame number at the start of the last GameLogic::update.
+extern unsigned int g_crashDiagLogicFrame;
+
+// Freezes the last-thrown-C++-exception snapshot (type name + throw-site backtrace)
+// so cleanup code running inside a catch handler cannot overwrite it before the
+// crash report is written. No-op on platforms without the throw-site hook.
+void CrashDiagFreezeThrowSite(void);
+
+// Returns a human readable type name for a mangled C++ RTTI name where supported.
+// Returns the input unchanged otherwise. Uses a static buffer; not thread safe.
+const char* CrashDiagDemangle(const char* mangledName);
+
 
 #ifdef DEBUG_PROFILE
 

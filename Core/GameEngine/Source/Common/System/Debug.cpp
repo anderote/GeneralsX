@@ -719,6 +719,177 @@ double SimpleProfiler::getAverageTime()
 #endif	// DEBUG_PROFILE
 
 // ----------------------------------------------------------------------------
+// GeneralsX @feature Crash diagnostics for uncaught exceptions in the engine
+// update loop. See Debug.h for the contract. The update path only performs
+// pointer/integer stores into these globals; everything below this comment
+// that costs anything only runs when an exception is actually thrown or when
+// a release crash is being reported.
+// ----------------------------------------------------------------------------
+
+const char* g_crashDiagUpdateStage = "(engine startup)";
+const char* g_crashDiagObjectTemplate = nullptr;
+const char* g_crashDiagObjectModule = nullptr;
+unsigned int g_crashDiagLogicFrame = 0;
+
+#if defined(__APPLE__) || defined(__GLIBC__)
+#define CRASHDIAG_HAS_THROW_HOOK 1
+#else
+#define CRASHDIAG_HAS_THROW_HOOK 0
+#endif
+
+#if CRASHDIAG_HAS_THROW_HOOK
+
+#include <execinfo.h>
+#include <cxxabi.h>
+#include <dlfcn.h>
+#include <typeinfo>
+
+namespace
+{
+	const int THROW_BACKTRACE_MAX = 48;
+	void* s_throwBacktrace[THROW_BACKTRACE_MAX];
+	int s_throwBacktraceDepth = 0;
+	char s_throwTypeName[256] = {0};
+	unsigned int s_throwCount = 0;
+	bool s_throwSnapshotFrozen = false;
+}
+
+const char* CrashDiagDemangle(const char* mangledName)
+{
+	if (mangledName == nullptr)
+		return "(null)";
+
+	static char s_demangleBuf[512];
+	int status = -1;
+	char* demangled = abi::__cxa_demangle(mangledName, nullptr, nullptr, &status);
+	if (status == 0 && demangled != nullptr)
+	{
+		strlcpy(s_demangleBuf, demangled, ARRAY_SIZE(s_demangleBuf));
+		free(demangled);
+		return s_demangleBuf;
+	}
+	if (demangled != nullptr)
+		free(demangled);
+	return mangledName;
+}
+
+void CrashDiagFreezeThrowSite(void)
+{
+	s_throwSnapshotFrozen = true;
+}
+
+// GeneralsX @feature Interpose __cxa_throw so we can capture the throw site of
+// C++ exceptions. All `throw` statements compiled into this executable bind to
+// this definition at static link time; we record the exception type and a
+// backtrace of the throw site, then forward to the real libc++abi/libstdc++
+// implementation. The cost is only paid when an exception is actually thrown.
+// Note: the snapshot is a single static slot (last throw wins). The crash path
+// freezes it via CrashDiagFreezeThrowSite() before running any cleanup code.
+extern "C" void __cxa_throw(void* thrownException, std::type_info* typeInfo, void (*destructor)(void*))
+{
+	if (!s_throwSnapshotFrozen)
+	{
+		++s_throwCount;
+		s_throwBacktraceDepth = backtrace(s_throwBacktrace, THROW_BACKTRACE_MAX);
+		if (typeInfo != nullptr)
+			strlcpy(s_throwTypeName, typeInfo->name(), ARRAY_SIZE(s_throwTypeName));
+		else
+			strlcpy(s_throwTypeName, "(unknown type)", ARRAY_SIZE(s_throwTypeName));
+	}
+
+	typedef void (*CxaThrowFunc)(void*, std::type_info*, void (*)(void*));
+	static CxaThrowFunc s_realCxaThrow = nullptr;
+	if (s_realCxaThrow == nullptr)
+		s_realCxaThrow = (CxaThrowFunc)dlsym(RTLD_NEXT, "__cxa_throw");
+	if (s_realCxaThrow != nullptr)
+		s_realCxaThrow(thrownException, typeInfo, destructor);
+
+	// __cxa_throw must not return. We only get here if dlsym failed.
+	abort();
+}
+
+// Print one backtrace line per frame, appending a demangled symbol name when
+// one can be extracted from the backtrace_symbols output.
+static void crashDiagPrintBacktrace(FILE* out, void* const* addresses, int depth)
+{
+	char** symbols = backtrace_symbols(const_cast<void**>(addresses), depth);
+	for (int i = 0; i < depth; ++i)
+	{
+		if (symbols != nullptr && symbols[i] != nullptr)
+		{
+			fprintf(out, "    %s", symbols[i]);
+			// Try to demangle the mangled symbol token (starts with "_Z").
+			const char* mangled = strstr(symbols[i], "_Z");
+			if (mangled != nullptr)
+			{
+				char token[512];
+				size_t len = strcspn(mangled, " \t+");
+				if (len > 0 && len < ARRAY_SIZE(token))
+				{
+					memcpy(token, mangled, len);
+					token[len] = 0;
+					const char* demangled = CrashDiagDemangle(token);
+					if (demangled != token && strcmp(demangled, token) != 0)
+						fprintf(out, "  [%s]", demangled);
+				}
+			}
+			fprintf(out, "\n");
+		}
+		else
+		{
+			fprintf(out, "    %p\n", addresses[i]);
+		}
+	}
+	if (symbols != nullptr)
+		free(symbols);
+}
+
+#else // !CRASHDIAG_HAS_THROW_HOOK
+
+const char* CrashDiagDemangle(const char* mangledName)
+{
+	return mangledName != nullptr ? mangledName : "(null)";
+}
+
+void CrashDiagFreezeThrowSite(void)
+{
+}
+
+#endif // CRASHDIAG_HAS_THROW_HOOK
+
+// Write everything we know about the crash context. Called with the
+// ReleaseCrashInfo.txt file and with stderr.
+static void crashDiagWriteDiagnostics(FILE* out, const char* reason)
+{
+	if (out == nullptr)
+		return;
+
+	fprintf(out, "\nGeneralsX crash diagnostics:\n");
+	if (reason != nullptr)
+		fprintf(out, "  Reason: %s\n", reason);
+	fprintf(out, "  Engine update stage: %s\n", g_crashDiagUpdateStage != nullptr ? g_crashDiagUpdateStage : "(none)");
+	fprintf(out, "  GameLogic frame: %u\n", g_crashDiagLogicFrame);
+	fprintf(out, "  Last object module update: template='%s' module='%s'\n",
+		g_crashDiagObjectTemplate != nullptr ? g_crashDiagObjectTemplate : "(none)",
+		g_crashDiagObjectModule != nullptr ? CrashDiagDemangle(g_crashDiagObjectModule) : "(none)");
+
+#if CRASHDIAG_HAS_THROW_HOOK
+	if (s_throwTypeName[0] != 0)
+	{
+		fprintf(out, "  Last C++ exception thrown: %s (throw #%u this run)\n", CrashDiagDemangle(s_throwTypeName), s_throwCount);
+		fprintf(out, "  Throw-site backtrace (%d frames):\n", s_throwBacktraceDepth);
+		crashDiagPrintBacktrace(out, s_throwBacktrace, s_throwBacktraceDepth);
+	}
+	else
+	{
+		fprintf(out, "  No C++ exception was recorded by the throw-site hook.\n");
+	}
+#endif
+
+	fflush(out);
+}
+
+// ----------------------------------------------------------------------------
 // ReleaseCrash
 // ----------------------------------------------------------------------------
 /**
@@ -761,6 +932,13 @@ void ReleaseCrash(const char *reason)
 {
 	/// do additional reporting on the crash, if possible
 
+	// GeneralsX @feature Freeze the throw-site snapshot first so nothing below
+	// (minidump, cleanup) can overwrite it, then mirror the full diagnostics to
+	// stderr so they are visible even if writing ReleaseCrashInfo.txt fails.
+	CrashDiagFreezeThrowSite();
+	fprintf(stderr, "Release Crash at %s; Reason %s\n", getCurrentTimeString(), reason);
+	crashDiagWriteDiagnostics(stderr, nullptr);
+
 	if (!DX8Wrapper_IsWindowed) {
 		if (ApplicationHWnd) {
 			ShowWindow(ApplicationHWnd, SW_HIDE);
@@ -799,9 +977,18 @@ void ReleaseCrash(const char *reason)
 	if (theReleaseCrashLogFile)
 	{
 		fprintf(theReleaseCrashLogFile, "Release Crash at %s; Reason %s\n", getCurrentTimeString(), reason);
+		// GeneralsX @feature Write actionable crash context (update stage, logic
+		// frame, last object update, throw-site backtrace) into the crash file.
+		crashDiagWriteDiagnostics(theReleaseCrashLogFile, nullptr);
 		fprintf(theReleaseCrashLogFile, "\nLast error:\n%s\n\nCurrent stack:\n", g_LastErrorDump.str());
+#ifdef _WIN32
 		const int STACKTRACE_SIZE	= 12;
 		const int STACKTRACE_SKIP = 6;
+#else
+		// GeneralsX @feature The execinfo based capture has no extra wrapper frames to skip.
+		const int STACKTRACE_SIZE	= 32;
+		const int STACKTRACE_SKIP = 1;
+#endif
 		void* stacktrace[STACKTRACE_SIZE];
 		::FillStackAddresses(stacktrace, STACKTRACE_SIZE, STACKTRACE_SKIP);
 		::StackDumpFromAddresses(stacktrace, STACKTRACE_SIZE, releaseCrashLogOutput);
@@ -881,6 +1068,9 @@ void ReleaseCrashLocalized(const AsciiString& p, const AsciiString& m)
 	#else
 	// Linux: Output to stderr (game will crash anyway after this)
 	fprintf(stderr, "FATAL ERROR: %s\n%s\n", prompt.str(), mesg.str());
+	// GeneralsX @feature Mirror crash diagnostics to stderr as well.
+	CrashDiagFreezeThrowSite();
+	crashDiagWriteDiagnostics(stderr, m.str());
 	#endif
 
 	char prevbuf[ _MAX_PATH ];
@@ -910,8 +1100,17 @@ void ReleaseCrashLocalized(const AsciiString& p, const AsciiString& m)
 	{
 		fprintf(theReleaseCrashLogFile, "Release Crash at %s; Reason %ls\n", getCurrentTimeString(), mesg.str());
 
+		// GeneralsX @feature Write actionable crash context into the crash file.
+		crashDiagWriteDiagnostics(theReleaseCrashLogFile, nullptr);
+
+#ifdef _WIN32
 		const int STACKTRACE_SIZE	= 12;
 		const int STACKTRACE_SKIP = 6;
+#else
+		// GeneralsX @feature The execinfo based capture has no extra wrapper frames to skip.
+		const int STACKTRACE_SIZE	= 32;
+		const int STACKTRACE_SKIP = 1;
+#endif
 		void* stacktrace[STACKTRACE_SIZE];
 		::FillStackAddresses(stacktrace, STACKTRACE_SIZE, STACKTRACE_SKIP);
 		::StackDumpFromAddresses(stacktrace, STACKTRACE_SIZE, releaseCrashLogOutput);
