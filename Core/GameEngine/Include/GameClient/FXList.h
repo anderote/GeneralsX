@@ -87,6 +87,13 @@ public:
 	*/
 	virtual void doFXObj(const Object* primary, const Object* secondary = nullptr) const;
 
+	/**
+		GeneralsX @feature drawable weapon tracers: does this nugget draw a weapon tracer streak?
+		Used by FXList::hasTracer() so the optional "extra tracers" pass can skip weapons that
+		already show one (avoids double tracers). Display-only query; default FALSE.
+	*/
+	virtual Bool isTracer() const { return FALSE; }
+
 private:
 
 };
@@ -137,6 +144,17 @@ public:
 	{
 		m_nuggets.push_back(fxn);
 	}
+
+	/// GeneralsX @feature drawable weapon tracers: TRUE if any nugget already draws a tracer streak.
+	Bool hasTracer() const;
+
+	/**
+		GeneralsX @feature drawable weapon tracers: spawn a single subtle client-side tracer streak
+		from a muzzle (primary) toward a target (secondary). Display-only (uses the client RNG and a
+		self-expiring drawable), so it never touches the sim. Used by the optional "extra tracers"
+		pass for direct-fire weapons whose FireFX has no tracer of its own.
+	*/
+	static void doSubtleTracer(const Coord3D *primary, const Real primarySpeed, const Coord3D *secondary);
 
 	/// inline convenience method to avoid having to check for null.
 	inline static void doFXPos(const FXList* fx, const Coord3D *primary, const Matrix3D* primaryMtx = nullptr, const Real primarySpeed = 0.0f, const Coord3D *secondary = nullptr, const Real overrideRadius = 0.0f)

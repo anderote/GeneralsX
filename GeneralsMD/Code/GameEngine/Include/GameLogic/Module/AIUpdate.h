@@ -642,6 +642,13 @@ public:
 	// this is intended for use ONLY by W3dWaypointBuffer and AIFollowPathState.
 	const Coord3D* friend_getGoalPathPosition( Int index ) const { return getStateMachine()->getGoalPathPosition( index ); }
 
+	// GeneralsX @feature waypoint/patrol: public wrappers over the (protected) state machine so the
+	// AIFollowPathState loop and AIGroup::groupDoPatrol can read/toggle the patrol path without
+	// exposing getStateMachine(). Display-agnostic, in-sim, deterministic.
+	Int  friend_getGoalPathSize() const { return getStateMachine()->getGoalPathSize(); }
+	Bool friend_getPatrolLoop() const { return getStateMachine()->getPatrolLoop(); }
+	void friend_setPatrolLoop( Bool loop ) { getStateMachine()->setPatrolLoop( loop ); }
+
 	// this is intended for use ONLY by W3dWaypointBuffer.
 	Int friend_getWaypointGoalPathSize() const;
 

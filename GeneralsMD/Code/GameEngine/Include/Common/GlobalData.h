@@ -379,6 +379,17 @@ public:
 	Real m_visionBonus[LEVEL_COUNT];			///< per-rank vision multiplier (opt-in per object)
 	Real m_defaultStructureRubbleHeight;	///< for rubbled structures, compress height to this if none specified
 
+	// GeneralsX @feature persistent vehicle wrecks: multiplier on a HULK's on-battlefield lifetime
+	// (LifetimeUpdate) so wrecks linger longer for battlefield readability. Default 1.0 = stock.
+	// Values <= 1.0 never shorten a wreck. Deterministic: read identically from GlobalData on every
+	// peer and applied after the (unchanged) RNG draw, so the sim stays bit-identical across clients.
+	Real m_wreckLifetimeScale;						///< HULK lifetime multiplier (default 1.0)
+
+	// GeneralsX @feature drawable weapon tracers: when TRUE, a subtle client-side tracer streak is
+	// drawn for direct-fire weapons whose FireFX has no tracer of its own. Purely display-only
+	// (GameClient / client RNG), so it cannot affect the sim. Default FALSE (stock).
+	Bool m_extraTracers;									///< draw subtle tracers for weapons lacking them
+
 	AsciiString m_shellMapName;				///< Holds the shell map name
 	Bool m_shellMapOn;								///< User can set the shell map not to load
 	Bool m_playIntro;									///< Flag to say if we're to play the intro or not

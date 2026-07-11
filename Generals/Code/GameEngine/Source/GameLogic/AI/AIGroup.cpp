@@ -1841,6 +1841,13 @@ void AIGroup::groupMoveToLine( const Coord3D *startIn, const Coord3D *endIn, Boo
 }
 
 //-------------------------------------------------------------------------------------------------
+// GeneralsX @feature waypoint/patrol: patrol-loop is a Zero Hour (z_generals) only behavior.
+// Provide a no-op stub here so the shared Core dispatch (MSG_DO_PATROL) links in the Generals tree.
+void AIGroup::groupDoPatrol( CommandSourceType /*cmdSource*/ )
+{
+}
+
+//-------------------------------------------------------------------------------------------------
 // AI Command Interface implementation for AIGroup
 //
 

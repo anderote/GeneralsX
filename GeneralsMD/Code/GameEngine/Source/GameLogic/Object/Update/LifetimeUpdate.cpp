@@ -30,6 +30,7 @@
 // INCLUDES ///////////////////////////////////////////////////////////////////////////////////////
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 
+#include "Common/GlobalData.h"	// GeneralsX @feature persistent wrecks: TheGlobalData->m_wreckLifetimeScale
 #include "Common/RandomValue.h"
 #include "Common/Xfer.h"
 #include "GameLogic/GameLogic.h"
@@ -51,6 +52,18 @@ LifetimeUpdate::LifetimeUpdate( Thing *thing, const ModuleData* moduleData ) : U
 	else
 	{
 		delay = calcSleepDelay(d->m_minFrames, d->m_maxFrames);
+
+		// GeneralsX @feature persistent vehicle wrecks: scale a HULK's lifetime by a global,
+		// config-driven factor so wrecks linger longer for battlefield readability. Applied AFTER
+		// the (unchanged) RNG draw above so the GameLogicRandomValue stream stays aligned - the only
+		// change is a multiply by an identical GlobalData value on every peer, so the sim remains
+		// bit-identical across clients / replays. Hulks only; never shortens (scale must exceed 1).
+		if( getObject()->isKindOf( KINDOF_HULK ) && TheGlobalData->m_wreckLifetimeScale > 1.0f )
+		{
+			delay = (UnsignedInt)(delay * TheGlobalData->m_wreckLifetimeScale);
+			if (delay < 1) delay = 1;
+			m_dieFrame = TheGameLogic->getFrame() + delay;	// keep m_dieFrame consistent with the scaled delay
+		}
 	}
 
 	setWakeFrame(getObject(), UPDATE_SLEEP(delay));

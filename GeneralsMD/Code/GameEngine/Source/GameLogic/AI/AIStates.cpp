@@ -675,6 +675,7 @@ AIStateMachine::AIStateMachine( Object *obj, AsciiString name ) : StateMachine( 
 	DEBUG_ASSERTCRASH(getOwner()->getAI(), ("An AI State Machine '%s' was constructed without an AIUpdateInterface, please tell JKMCD", name.str()));
 
 	m_goalPath.clear();
+	m_patrolLoop = FALSE;		// GeneralsX @feature waypoint/patrol
 	m_goalWaypoint = nullptr;
 	m_goalSquad = nullptr;
 
@@ -749,7 +750,8 @@ void AIStateMachine::crc( Xfer *xfer )
 void AIStateMachine::xfer( Xfer *xfer )
 {
   // version
-  XferVersion currentVersion = 1;
+  // GeneralsX @feature waypoint/patrol: v2 appends m_patrolLoop. v1 saves load with patrol off.
+  XferVersion currentVersion = 2;
   XferVersion version = currentVersion;
   xfer->xferVersion( &version, currentVersion );
 
@@ -807,6 +809,10 @@ void AIStateMachine::xfer( Xfer *xfer )
 	}
 
 	xfer->xferUnsignedInt(&m_temporaryStateFramEnd);
+
+	// GeneralsX @feature waypoint/patrol: patrol-loop flag (v2+). Older saves leave it FALSE.
+	if (version >= 2)
+		xfer->xferBool(&m_patrolLoop);
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -1018,6 +1024,7 @@ void AIStateMachine::clear()
 {
 	StateMachine::clear();
 	m_goalPath.clear();
+	m_patrolLoop = FALSE;		// GeneralsX @feature waypoint/patrol: any fresh order cancels patrol
 	m_goalWaypoint = nullptr;
 	m_goalSquad = nullptr;
 
@@ -3372,7 +3379,19 @@ StateReturnType AIFollowPathState::update()
 		if (pos == nullptr)
 		{
 			// reached the end of the path
-			return STATE_SUCCESS;
+			// GeneralsX @feature waypoint/patrol: if this machine is in patrol-loop mode and the
+			// path has at least 2 legs, re-seed from index 0 and keep walking (in-sim, deterministic -
+			// the goal path is untouched, only the walk index resets). Otherwise stop as before.
+			if (ai->friend_getPatrolLoop() && ai->friend_getGoalPathSize() > 1)
+			{
+				m_index = 0;
+				pos = ai->friend_getGoalPathPosition( m_index );
+				ai->friend_setCurrentGoalPathIndex( m_index );
+			}
+			else
+			{
+				return STATE_SUCCESS;
+			}
 		}
 
 		ai->friend_startingMove();

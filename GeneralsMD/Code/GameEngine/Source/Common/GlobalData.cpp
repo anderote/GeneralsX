@@ -460,6 +460,10 @@ GlobalData* GlobalData::m_theOriginal = nullptr;
 
 	{ "DefaultStructureRubbleHeight",	INI::parseReal,			nullptr,			offsetof( GlobalData, m_defaultStructureRubbleHeight ) },
 
+	// GeneralsX @feature persistent vehicle wrecks / drawable tracers
+	{ "WreckLifetimeScale",					INI::parseReal,			nullptr,			offsetof( GlobalData, m_wreckLifetimeScale ) },
+	{ "ExtraTracers",							INI::parseBool,			nullptr,			offsetof( GlobalData, m_extraTracers ) },
+
 	{ "FixedSeed",									INI::parseInt,				nullptr,			offsetof( GlobalData, m_fixedSeed ) },
 
 	{ "ShellMapName",								INI::parseAsciiString,nullptr,			offsetof( GlobalData, m_shellMapName ) },
@@ -1066,6 +1070,10 @@ GlobalData::GlobalData()
 	}
 
 	m_defaultStructureRubbleHeight = 1.0f;
+
+	// GeneralsX @feature persistent vehicle wrecks / drawable tracers (defaults = stock behavior)
+	m_wreckLifetimeScale = 1.0f;		// 1.0 = stock hulk lifetime; >1 keeps wrecks around longer
+	m_extraTracers = FALSE;				// off by default; opt in via ExtraTracers = Yes in GameData.ini
 	m_weaponBonusSet = newInstance(WeaponBonusSet);
 
 	m_shellMapName.set("Maps\\ShellMap1\\ShellMap1.map");

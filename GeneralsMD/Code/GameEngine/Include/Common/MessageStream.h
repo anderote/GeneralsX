@@ -605,6 +605,7 @@ public:
 		MSG_ENABLE_RETALIATION_MODE,								///< Turn retaliation mode on or off.
 		MSG_SET_UNIT_STANCE,												///< GeneralsX @feature (int stance) set combat stance on the selected group
 		MSG_DO_MOVETO_LINE,													///< GeneralsX @feature (location start, location end, int shiftDown) line/formation move
+		MSG_DO_PATROL,															///< GeneralsX @feature (no args) toggle patrol-loop on the selected group's current waypoint path
 
 		MSG_BEGIN_DEBUG_NETWORK_MESSAGES = 1900,		///< network messages that exist only in debug/internal builds. all grouped separately.
 

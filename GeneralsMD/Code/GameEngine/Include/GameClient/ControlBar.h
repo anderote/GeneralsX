@@ -215,6 +215,7 @@ enum GUICommandType CPP_11(: Int)
 
 	GUI_COMMAND_SELECT_ALL_UNITS_OF_TYPE,
 	GUI_COMMAND_SET_STANCE,								///< GeneralsX @feature set combat stance (UnitStance via the button's Stance= field)
+	GUI_COMMAND_TOGGLE_PATROL,						///< GeneralsX @feature waypoint/patrol: toggle looping of the current waypoint path
 
 	// add more commands here, don't forget to update the string command list below too ...
 
@@ -270,6 +271,7 @@ static const char *const TheGuiCommandNames[] =
 	"SPECIAL_POWER_CONSTRUCT_FROM_SHORTCUT",
 	"SELECT_ALL_UNITS_OF_TYPE",
 	"SET_STANCE",
+	"TOGGLE_PATROL",
 
 	nullptr
 };

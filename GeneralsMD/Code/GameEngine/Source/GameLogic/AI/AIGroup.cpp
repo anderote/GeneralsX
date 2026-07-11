@@ -43,6 +43,7 @@
 #include "GameClient/Line2D.h"
 
 #include "GameLogic/AI.h"
+#include "GameLogic/AIStateMachine.h"		// GeneralsX @feature waypoint/patrol: AIStateMachine::getPatrolLoop/setPatrolLoop/getGoalPathSize
 #include "GameLogic/AIPathfind.h"
 #include "GameLogic/Locomotor.h"
 #include "GameLogic/Module/AIUpdate.h"
@@ -1886,6 +1887,56 @@ void AIGroup::groupMoveToLine( const Coord3D *startIn, const Coord3D *endIn, Boo
 			else
 				ai->aiMoveToPosition( &dest, cmdSource );
 		}
+	}
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * GeneralsX @feature waypoint/patrol: toggle patrol-loop on the current waypoint path for each
+ * member. When enabled, the member's AIFollowPathState re-seeds its goal path on completion so the
+ * unit loops the route. Fully deterministic: the loop flag and (if re-issuing a finished path) the
+ * path itself live in the sim; only the patrol bit crosses the network (MSG_DO_PATROL).
+ */
+void AIGroup::groupDoPatrol( CommandSourceType cmdSource )
+{
+	if (m_dirty)
+		recompute();
+
+	std::list<Object *>::iterator i;
+	for( i = m_memberList.begin(); i != m_memberList.end(); ++i )
+	{
+		Object *obj = (*i);
+		AIUpdateInterface *ai = obj->getAIUpdateInterface();
+		if (ai == nullptr)
+			continue;
+
+		const Int pathSize = ai->friend_getGoalPathSize();
+		if (pathSize <= 1)
+			continue;	// nothing to patrol - need a real multi-leg path first (shift-click waypoints)
+
+		if (ai->friend_getPatrolLoop())
+		{
+			// toggle OFF - unit finishes its current leg then stops normally
+			ai->friend_setPatrolLoop( FALSE );
+			continue;
+		}
+
+		// toggle ON. If the unit already finished the path (not in AI_FOLLOW_PATH), re-issue the
+		// stored path from the start so patrolling begins immediately. aiFollowPath -> clear() would
+		// reset the loop flag, so set the flag AFTER re-issuing.
+		if (ai->getAIStateType() != AI_FOLLOW_PATH)
+		{
+			std::vector<Coord3D> path;
+			for( Int p = 0; p < pathSize; ++p )
+			{
+				const Coord3D *pt = ai->friend_getGoalPathPosition( p );
+				if (pt)
+					path.push_back( *pt );
+			}
+			if (path.size() > 1)
+				ai->aiFollowPath( &path, nullptr, cmdSource );
+		}
+		ai->friend_setPatrolLoop( TRUE );
 	}
 }
 

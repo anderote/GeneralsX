@@ -1004,6 +1004,14 @@ GameMessage::Type CommandTranslator::issueMoveToLocationCommand( const Coord3D *
 		{
 			msgType = GameMessage::MSG_ADD_WAYPOINT;
 		}
+		// GeneralsX @feature waypoint/patrol: holding Shift on an ordinary move-click accumulates a
+		// multi-point waypoint path (one queued leg per click) instead of replacing the current
+		// order. Each click still emits the standard, deterministic MSG_ADD_WAYPOINT (handled in-sim
+		// by AIGroup::groupMoveToPosition(addWaypoint=TRUE)), so replays / MP stay bit-identical.
+		else if( TheKeyboard && TheKeyboard->isShift() )
+		{
+			msgType = GameMessage::MSG_ADD_WAYPOINT;
+		}
 		else if( TheInGameUI->isInAttackMoveToMode())
 		{
 			msgType = GameMessage::MSG_DO_ATTACKMOVETO;

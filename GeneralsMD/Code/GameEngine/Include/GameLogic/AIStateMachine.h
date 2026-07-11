@@ -146,6 +146,12 @@ public:
 	const Coord3D *getGoalPathPosition( Int i ) const;		///< return path position at index "i"
 	Int getGoalPathSize() const { return m_goalPath.size(); }
 
+	// GeneralsX @feature waypoint/patrol: when set, AIFollowPathState loops m_goalPath
+	// (re-seeds from index 0 on completion) instead of stopping. Deterministic - the
+	// goal path is already persisted below; only this bool is added (xfer version 1->2).
+	void setPatrolLoop( Bool loop ) { m_patrolLoop = loop; }
+	Bool getPatrolLoop() const { return m_patrolLoop; }
+
 
 	void setGoalWaypoint( const Waypoint *way );		///< move toward this waypoint, continue if connected
 	const Waypoint *getGoalWaypoint();
@@ -174,6 +180,7 @@ protected:
 
 private:
 	std::vector<Coord3D>	m_goalPath;					///< defines a simple path to follow
+	Bool									m_patrolLoop;				///< GeneralsX @feature: loop m_goalPath (patrol) instead of stopping at the end
 	const Waypoint *			m_goalWaypoint;
 	Squad *								m_goalSquad;
 

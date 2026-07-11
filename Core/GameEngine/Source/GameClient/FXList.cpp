@@ -218,6 +218,10 @@ public:
 		}
 	}
 
+	// GeneralsX @feature drawable weapon tracers: identify this nugget as a tracer so the optional
+	// global "extra tracers" pass can avoid doubling up on weapons that already show one.
+	virtual Bool isTracer() const override { return TRUE; }
+
 	static void parse(INI *ini, void *instance, void* /*store*/, const void* /*userData*/)
 	{
 		static const FieldParse myFieldParse[] =
@@ -813,6 +817,67 @@ void FXList::doFXPos(const Coord3D *primary, const Matrix3D* primaryMtx, const R
 	{
 		(*it)->doFXPos(primary, primaryMtx, primarySpeed, secondary, overrideRadius);
 	}
+}
+
+//-------------------------------------------------------------------------------------------------
+// GeneralsX @feature drawable weapon tracers: TRUE if any nugget in this list already draws a tracer.
+Bool FXList::hasTracer() const
+{
+	for (FXNuggetList::const_iterator it = m_nuggets.begin(); it != m_nuggets.end(); ++it)
+	{
+		if ((*it)->isTracer())
+			return TRUE;
+	}
+	return FALSE;
+}
+
+//-------------------------------------------------------------------------------------------------
+// GeneralsX @feature drawable weapon tracers: spawn ONE subtle client-side tracer streak from muzzle
+// (primary) toward target (secondary). Mirrors TracerFXNugget::doFXPos with deliberately subtle,
+// thin, semi-transparent parameters and a probability roll so it reads as an occasional streak, not
+// a solid beam. Display-only: uses GameClientRandomValueReal (client RNG) and a self-expiring
+// object-less Drawable, so it can never affect the deterministic sim.
+void FXList::doSubtleTracer(const Coord3D *primary, const Real primarySpeed, const Coord3D *secondary)
+{
+	if (!primary || !secondary)
+		return;
+
+	// keep it subtle - only ~40% of shots leave a visible streak
+	static const Real SUBTLE_PROBABILITY = 0.4f;
+	if (SUBTLE_PROBABILITY <= GameClientRandomValueReal(0, 1))
+		return;
+
+	Drawable *tracer = TheThingFactory->newDrawable(TheThingFactory->findTemplate("GenericTracer"));
+	if (!tracer)
+		return;
+
+	Matrix3D tracerMtx;
+	Vector3 pos( primary->x, primary->y, primary->z );
+	Vector3 dir( secondary->x - primary->x, secondary->y - primary->y, secondary->z - primary->z );
+	dir.Normalize();
+	tracerMtx.buildTransformMatrix( pos, dir );
+	tracer->setTransformMatrix( &tracerMtx );
+	tracer->setPosition( primary );
+
+	Real speed = primarySpeed;
+	if (speed <= 0.0f)
+		speed = 200.0f;	// direct-fire / hitscan weapons report ~0 speed; use a brisk default streak
+
+	RGBColor color;
+	color.red = 1.0f; color.green = 0.85f; color.blue = 0.45f;	// warm, faint
+
+	for (DrawModule** d = tracer->getDrawModules(); *d; ++d)
+	{
+		TracerDrawInterface* tdi = (*d)->getTracerDrawInterface();
+		if (tdi != nullptr)
+			tdi->setTracerParms( speed, 6.0f /*length*/, 0.5f /*width*/, color, 0.5f /*initialOpacity*/ );
+	}
+
+	Real dist = calcDist(*primary, *secondary) - 6.0f;
+	Real frames = (dist >= 0.0f && speed > 0.0f) ? (dist / speed) : 1.0f;
+	Int framesAdjusted = REAL_TO_INT_CEIL(frames);
+	if (framesAdjusted < 1) framesAdjusted = 1;
+	tracer->setExpirationDate(TheGameLogic->getFrame() + framesAdjusted);
 }
 
 //-------------------------------------------------------------------------------------------------

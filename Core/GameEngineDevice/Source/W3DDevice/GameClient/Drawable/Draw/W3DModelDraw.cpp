@@ -3759,6 +3759,32 @@ Bool W3DModelDraw::handleWeaponFireFX(WeaponSlotType wslot, Int specificBarrelTo
 			info.setMuzzleFlashHidden(m_renderObject, false);
 	}
 
+	// GeneralsX @feature drawable weapon tracers: when the global toggle is on, draw a subtle
+	// client-side tracer streak for direct-fire weapons that have a target but whose FireFX does not
+	// already draw a tracer of its own (so we never double up on machine-gun-style tracers). Purely
+	// display-only - FXList::doSubtleTracer spawns a self-expiring, object-less drawable using the
+	// client RNG, so it cannot affect the deterministic sim.
+	if (TheGlobalData->m_extraTracers && victimPos && (fxl == nullptr || !fxl->hasTracer()))
+	{
+		Coord3D muzzle;
+		Bool haveMuzzle = FALSE;
+		if (info.m_fxBone && m_renderObject && !m_renderObject->Is_Hidden())
+		{
+			Matrix3D mtx = m_renderObject->Get_Bone_Transform(info.m_fxBone);
+			muzzle.x = mtx.Get_X_Translation();
+			muzzle.y = mtx.Get_Y_Translation();
+			muzzle.z = mtx.Get_Z_Translation();
+			haveMuzzle = TRUE;
+		}
+		else if (getDrawable())
+		{
+			muzzle = *getDrawable()->getPosition();		// fall back to the firer's position
+			haveMuzzle = TRUE;
+		}
+		if (haveMuzzle)
+			FXList::doSubtleTracer(&muzzle, weaponSpeed, victimPos);
+	}
+
 	return handled;
 }
 

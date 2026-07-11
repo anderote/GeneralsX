@@ -561,6 +561,17 @@ void GameLogic::logicMessageDispatcher( GameMessage *msg, void *userData )
 			}
 			break;
 		}
+		case GameMessage::MSG_DO_PATROL:
+		{
+			// GeneralsX @feature waypoint/patrol: toggle looping of the selected group's current
+			// waypoint path (no arguments). All patrol/loop math runs in-sim, so this is fully
+			// deterministic / network-safe.
+			if( currentlySelectedGroup )
+			{
+				currentlySelectedGroup->groupDoPatrol( CMD_FROM_PLAYER );
+			}
+			break;
+		}
 		case GameMessage::MSG_ADD_WAYPOINT:
 		{
 			onAddWaypoint(msg, currentlySelectedGroup);

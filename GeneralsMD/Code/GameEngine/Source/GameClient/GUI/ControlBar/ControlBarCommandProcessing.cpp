@@ -684,6 +684,16 @@ CBCommandStatus ControlBar::processCommandUI( GameWindow *control,
 			break;
 		}
 
+		//---------------------------------------------------------------------------------------------
+		// GeneralsX @feature waypoint/patrol: toggle patrol-loop on the selected group's current
+		// waypoint path. Emits the deterministic MSG_DO_PATROL (handled in-sim by
+		// AIGroup::groupDoPatrol); no arguments, so it is network-safe.
+		case GUI_COMMAND_TOGGLE_PATROL:
+		{
+			TheMessageStream->appendMessage(GameMessage::MSG_DO_PATROL);
+			break;
+		}
+
 		case GUI_COMMAND_SELECT_ALL_UNITS_OF_TYPE:
 		{
 			Player* localPlayer = ThePlayerList->getLocalPlayer();

@@ -491,3 +491,140 @@ rest of the batch. Recorded here so a follow-up (or the data layer) can pick it 
 All three are deterministic (path math is in-sim); the only cross-network input is the
 order + a couple of bits. Estimated scope is comparable to the combat-stances feature
 (new state flags, a group order + message, xfer version bumps in both trees).
+
+---
+
+# GeneralsX Engine Features - "Graphics quality / patrol" batch
+
+Three features on `feature/graphics-quality`, GeneralsMD (Zero Hour / `z_generals`) target.
+Feature G1 completes the deferred C5 waypoint/patrol design above; G2 and G3 are the
+persistent-wrecks and drawable-tracer readability features. Each is a separate focused edit
+set. Determinism rule respected throughout: gameplay-affecting behavior only ever moves through
+standard networked messages or through identically-read GlobalData; the two readability features
+are display-only (or a hulks-only, config-gated sim tweak that stays bit-identical across peers).
+
+## G1. Waypoint / patrol movement order  (implements the deferred C5 patrol loop)
+
+Shift-click now lays a **multi-point waypoint path** (one queued leg per click) and a **patrol
+toggle** makes the unit loop that path.
+
+**Client-side shift-click accumulation.** In `CommandTranslator::issueMoveToLocationCommand`
+(`Core/.../MessageStream/CommandXlat.cpp`) an ordinary move-click issued while **Shift** is held
+(`TheKeyboard->isShift()`) now emits **`MSG_ADD_WAYPOINT`** instead of `MSG_DO_MOVETO` - exactly
+the message the existing (Alt) waypoint mode uses. So each shift-click is one standard, networked,
+per-leg queued-move message, dispatched in-sim by `AIGroup::groupMoveToPosition(addWaypoint=TRUE)`
+-> `aiFollowPathAppend` -> `AIStateMachine::addToGoalPath`. The sim's `privateFollowPathAppend`
+already does the right thing (first click while idle starts a fresh path; subsequent clicks append),
+so no new client accumulation state is needed. **Deterministic:** reuses the pre-existing
+`MSG_ADD_WAYPOINT` path; only the client's choice of message type changed.
+
+**Patrol loop (sim).** `AIStateMachine` gains a `Bool m_patrolLoop` (accessors
+`setPatrolLoop`/`getPatrolLoop`) that lives right next to the already-persisted `m_goalPath`.
+`AIFollowPathState::update()` - at the "reached the end of the path" point - re-seeds the walk
+index to 0 and keeps going when `m_patrolLoop` is set and the path has >= 2 legs (the goal path is
+never consumed, only indexed, so looping is just an index reset). Any fresh order clears the flag
+via `AIStateMachine::clear()`. Xfer version bumped **1 -> 2** (append-only; v1 saves load with
+patrol off). Because `m_goalPath` was already xfer'd, the loop is fully replay/save-safe.
+
+**Patrol order dispatch.** New networked message **`MSG_DO_PATROL`** (no arguments, toggle) ->
+`AIGroup::groupDoPatrol(CMD_FROM_PLAYER)`. For each selected member with a real multi-leg goal path
+it toggles the loop flag; when enabling on a unit that already finished its path it re-issues the
+stored path from index 0 (via `aiFollowPath`, then sets the flag - `aiFollowPath` -> `clear()`
+would otherwise wipe it) so patrolling starts immediately. All path/loop math runs in-sim; the only
+thing crossing the wire is the toggle bit, so it is deterministic / network-safe. The client trigger
+is a new `GUICommandType` **`GUI_COMMAND_TOGGLE_PATROL`** (mechanism only, mirrors the C2 stance
+button pattern) which emits `MSG_DO_PATROL`; the data layer wires it onto a command button.
+
+Access to the protected `getStateMachine()` is via new public friend wrappers on
+`AIUpdateInterface` (`friend_getGoalPathSize` / `friend_getPatrolLoop` / `friend_setPatrolLoop`).
+
+Files: `Core/.../MessageStream/CommandXlat.cpp` (shift-click -> MSG_ADD_WAYPOINT),
+`Include/Common/MessageStream.h` + `Source/Common/MessageStream.cpp` (`MSG_DO_PATROL`, both trees),
+`Core/.../GameLogicDispatch.cpp` (dispatch -> groupDoPatrol),
+`Include/GameLogic/AIStateMachine.h` + `Source/GameLogic/AI/AIStates.cpp`
+(`m_patrolLoop`, ctor/clear init, xfer v2, `AIFollowPathState::update` loop),
+`Include/GameLogic/Module/AIUpdate.h` (friend patrol accessors),
+`Include/GameLogic/AI.h` + `Source/GameLogic/AI/AIGroup.cpp` (`groupDoPatrol`),
+`Include/GameClient/ControlBar.h` (`GUI_COMMAND_TOGGLE_PATROL` enum + name),
+`Source/GameClient/GUI/ControlBar/ControlBarCommandProcessing.cpp` (emit `MSG_DO_PATROL`).
+Generals tree mirror (keeps `g_generals` linking; behavior is ZH-only): `MessageStream.*`
+(`MSG_DO_PATROL`), `AI.h` + `AIGroup.cpp` (no-op `groupDoPatrol`).
+
+## G2. Persistent vehicle wrecks (config-driven hulk lifetime)
+
+When a vehicle dies it becomes a **HULK** - a real `KINDOF_HULK` *GameLogic Object* whose
+on-battlefield lifetime is owned by `LifetimeUpdate` (then `SlowDeathBehavior` sinks + destroys it).
+There is no purely client-side lifetime knob on the hulk (the drawable is removed when the sim
+destroys the object; the client `m_expirationDate` path is only valid for object-less drawables),
+so a "keep wrecks longer" tweak necessarily touches logic. It is therefore implemented as a
+**deterministically-gated** sim change rather than a client hack.
+
+New GlobalData field **`WreckLifetimeScale`** (default `1.0` = stock). In the `LifetimeUpdate`
+constructor, for `KINDOF_HULK` objects only (and only when no script `HulkMaxLifetimeOverride` is in
+play), the computed lifetime `delay` is multiplied by `TheGlobalData->m_wreckLifetimeScale` when that
+scale exceeds 1.0 (it never shortens a wreck), and `m_dieFrame` is updated to match.
+
+**Why it's deterministic-safe:** the multiply is applied **after** the unchanged
+`GameLogicRandomValue` draw, so the RNG stream stays aligned across all objects; the scale is read
+identically from `GlobalData` on every peer (config is part of the synchronized deterministic input,
+exactly like the stock `MaxLifetime` value itself); and the result flows through the already-xfer'd
+`m_dieFrame`. No per-player input, no new network message, no RNG divergence -> the sim stays
+bit-identical across clients and in replays. Gated to hulks so no other timed object
+(mines / timed effects / OCL spawns) is affected.
+
+**INI contract** (`GameData` / `GlobalData`):
+
+```ini
+WreckLifetimeScale = 1.0    ; multiplier on HULK on-battlefield lifetime (default 1.0 = stock)
+                            ; e.g. 3.0 keeps wrecks around ~3x longer; values <= 1.0 never shorten
+```
+
+Files: `Include/Common/GlobalData.h`, `Source/Common/GlobalData.cpp` (field + parse `WreckLifetimeScale`
++ default), `Source/GameLogic/Object/Update/LifetimeUpdate.cpp` (hulk-gated scale in the ctor).
+
+## G3. Drawable weapon tracers
+
+A subtle, client-side tracer streak for direct-fire weapons whose FireFX has **no** tracer of its
+own, config-toggleable and off by default. Tracers in this engine are already an FXList nugget
+(`TracerFXNugget`) that spawns a self-expiring tracer `Drawable`; this feature reuses that machinery
+for weapons that lack one.
+
+New GlobalData bool **`ExtraTracers`** (default `FALSE`). The draw is added in the **client-side**
+FX dispatch `W3DModelDraw::handleWeaponFireFX` (`Core/GameEngineDevice/...`, display-only): when
+`TheGlobalData->m_extraTracers` is set, the weapon has a target position, and the weapon's FireFX
+does **not** already contain a tracer (`fxl == nullptr || !fxl->hasTracer()`), it calls
+`FXList::doSubtleTracer(muzzle, weaponSpeed, victimPos)`. That helper (co-located with
+`TracerFXNugget` in `Core/.../FXList.cpp`) spawns one `GenericTracer` drawable from muzzle toward the
+target with deliberately subtle parameters (thin, short, half-opacity, warm color, ~40% probability
+roll) that self-expires after the flight time.
+
+**Why it's determinism-safe:** everything is display-only. `doSubtleTracer` uses
+`GameClientRandomValueReal` (the client RNG, never the logic RNG), creates only an object-less,
+self-expiring `Drawable`, and writes **no** `Object`/logic state; `handleWeaponFireFX` is the
+client FX hook, not the damage path (`dealDamageInternal` is untouched). Tracer presence detection
+uses a new `FXNugget::isTracer()` virtual (default `FALSE`, overridden `TRUE` in `TracerFXNugget`)
+surfaced through `FXList::hasTracer()`, so weapons that already show a tracer are skipped (no
+doubling).
+
+**INI contract** (`GameData` / `GlobalData`):
+
+```ini
+ExtraTracers = Yes     ; draw a subtle tracer for direct-fire weapons that lack one (default No)
+```
+
+Files: `Include/Common/GlobalData.h`, `Source/Common/GlobalData.cpp` (field + parse `ExtraTracers`
++ default), `Core/GameEngine/Include/GameClient/FXList.h` (`FXNugget::isTracer`, `FXList::hasTracer`,
+`FXList::doSubtleTracer`), `Core/GameEngine/Source/GameClient/FXList.cpp` (`TracerFXNugget::isTracer`
+override, `hasTracer` + `doSubtleTracer` impl),
+`Core/GameEngineDevice/Source/W3DDevice/GameClient/Drawable/Draw/W3DModelDraw.cpp`
+(`handleWeaponFireFX` extra-tracer pass).
+
+## Build
+
+Every changed translation unit compiles clean under the `macos-vulkan` preset
+(`RelWithDebInfo`, clang, from `compile_commands.json`): the 10 feature TUs plus the two
+Generals-tree mirror TUs plus `ControlBar.cpp` (verifies the `GUI_COMMAND_TOGGLE_PATROL`
+name-table `static_assert`). A full `z_generals` link could **not** be produced in this
+environment because the `dxvk` dependency triggers a `meson` reconfigure that requires
+`glslangValidator`, which is not installed here (pre-existing toolchain gap, unrelated to these
+changes). The main session performs the full build/link/deploy.
