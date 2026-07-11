@@ -50,6 +50,7 @@
 #include "GameClient/GameWindow.h"
 #include "GameClient/GameWindowManager.h"
 #include "GameClient/InGameUI.h"
+#include "GameClient/Keyboard.h"		// GeneralsX @feature shift-click x5 production queue
 #include "GameClient/AnimateWindowManager.h"
 
 #include "GameLogic/GameLogic.h"
@@ -440,14 +441,30 @@ CBCommandStatus ControlBar::processCommandUI( GameWindow *control,
 
 			}
 
-			// get a new production id to assign to this
-			ProductionID productionID = pu->requestUniqueUnitID();
+			// GeneralsX @feature shift-click enqueues a batch instead of a single unit.
+			// Applies to any ProductionUpdateInterface factory, so it covers infantry AND
+			// vehicles. Deterministic: we just issue N ordinary MSG_QUEUE_UNIT_CREATE
+			// messages, re-checking canMakeUnit before each so we stop cleanly when the
+			// queue fills, money runs out, or the per-player cap is hit (the first unit
+			// was already validated above). The first message uses the productionID we
+			// implicitly derive below; each subsequent unit gets its own unique id.
+			const Int SHIFT_QUEUE_COUNT = 5;
+			Int unitsToQueue = TheKeyboard->isShift() ? SHIFT_QUEUE_COUNT : 1;
 
-			// create a message to build this thing
+			for( Int queued = 0; queued < unitsToQueue; ++queued )
+			{
+				// the first unit already passed canMakeUnit above; re-validate the rest
+				if( queued > 0 && TheBuildAssistant->canMakeUnit(factory, whatToBuild) != CANMAKE_OK )
+					break;
 
-			GameMessage *msg = TheMessageStream->appendMessage( GameMessage::MSG_QUEUE_UNIT_CREATE );
-			msg->appendIntegerArgument( whatToBuild->getTemplateID() );
-			msg->appendIntegerArgument( productionID );
+				// get a new production id to assign to this
+				ProductionID productionID = pu->requestUniqueUnitID();
+
+				// create a message to build this thing
+				GameMessage *msg = TheMessageStream->appendMessage( GameMessage::MSG_QUEUE_UNIT_CREATE );
+				msg->appendIntegerArgument( whatToBuild->getTemplateID() );
+				msg->appendIntegerArgument( productionID );
+			}
 
 			break;
 
