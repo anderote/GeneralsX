@@ -451,3 +451,43 @@ Files: `Include/Common/MessageStream.h` + `Source/Common/MessageStream.cpp`
 (`MSG_DO_MOVETO_LINE`, both trees), `Core/.../CommandXlat.cpp` (RMB-drag input),
 `Core/.../GameLogicDispatch.cpp` (dispatch), `Include/GameLogic/AI.h` +
 `Source/GameLogic/AI/AIGroup.cpp` (`groupMoveToLine`, both trees).
+
+## C5. Waypoint / patrol upgrade  (DEFERRED - design only)
+
+Not implemented in this batch. Deferred to keep both trees building clean and the
+sim deterministic, because it requires determinism-critical changes to the movement
+state machine + save/xfer versioning that were too large to land safely alongside the
+rest of the batch. Recorded here so a follow-up (or the data layer) can pick it up.
+
+**Current behavior (what already exists):**
+- Player waypoints are built incrementally: waypoint mode -> `MSG_ADD_WAYPOINT` ->
+  `AIGroup::groupMoveToPosition(pos, addWaypoint=TRUE)` -> per unit
+  `aiFollowPathAppend` -> `AIStateMachine::addToGoalPath` (the `m_goalPath`
+  `std::vector<Coord3D>`), consumed by `AIFollowPathState` (`AI_FOLLOW_PATH`). This
+  is a plain move (no enemy engagement) and is **not** looped.
+- The goal path lives on each unit's state machine, so it **already survives
+  reselection at the sim level** (units keep moving); only the on-screen preview
+  overlay is lost - sub-feature (3) is essentially a cosmetic gap.
+- `aiAttackFollowWaypointPath` / `AI_ATTACKFOLLOW_WAYPOINT_PATH_*` (attack-move down a
+  **map `Waypoint` chain**) already exists but is script-facing and consumes a
+  `Waypoint` object, not the player's dynamic `m_goalPath`.
+
+**Design to implement:**
+1. **Attack-move along waypoints:** add an `m_engageWhileFollowing` flag to
+   `AIFollowPathState` (or a parallel `AIAttackFollowPathState`) so that while
+   traversing `m_goalPath` it runs the idle-scan / `getNextMoodTarget` engage logic
+   (respecting the new combat stance, C2) and resumes the path after the fight.
+   Expose via a group order `groupFollowPathAttack` + an input modifier (e.g. a
+   "attack-waypoint" toggle or Alt while placing waypoints).
+2. **Patrol loop:** store the completed path (copy `m_goalPath`) plus a
+   `m_patrolLoop` bool on the state machine; when `AIFollowPathState` reaches the end
+   and loop is set, re-seed `m_goalPath` from the stored copy (optionally reversed for
+   ping-pong) and continue. Bump the relevant state-machine xfer version and persist
+   the stored path + loop flag.
+3. **Preview persistence:** redraw the queued waypoint path for the current selection
+   from each unit's `m_goalPath` (display-only), so reselecting a patrolling group
+   re-shows its route.
+
+All three are deterministic (path math is in-sim); the only cross-network input is the
+order + a couple of bits. Estimated scope is comparable to the combat-stances feature
+(new state flags, a group order + message, xfer version bumps in both trees).
