@@ -112,6 +112,8 @@ const FieldParse CommandButton::s_commandButtonFieldParseTable[] =
 	{ "Upgrade",							INI::parseUpgradeTemplate,	 nullptr, offsetof( CommandButton, m_upgradeTemplate ) },
 	{ "WeaponSlot",						INI::parseLookupList,				 TheWeaponSlotTypeNamesLookupList, offsetof( CommandButton, m_weaponSlot ) },
 	{ "MaxShotsToFire",				INI::parseInt,							 nullptr, offsetof( CommandButton, m_maxShotsToFire ) },
+	// GeneralsX @feature rank-gated command abilities: min veterancy rank to use this button.
+	{ "RequiredVeterancy",		INI::parseIndexList,				 TheVeterancyNames, offsetof( CommandButton, m_requiredVeterancy ) },
 	{ "Science",							INI::parseScienceVector,					 nullptr, offsetof( CommandButton, m_science ) },
 	{ "SpecialPower",					INI::parseSpecialPowerTemplate,			 nullptr, offsetof( CommandButton, m_specialPower ) },
 	{ "TextLabel",						INI::parseAsciiString,			 nullptr, offsetof( CommandButton, m_textLabel ) },
@@ -572,6 +574,7 @@ CommandButton::CommandButton()
 	m_upgradeTemplate = nullptr;
 	m_weaponSlot = PRIMARY_WEAPON;
 	m_maxShotsToFire = 0x7fffffff;	// huge number
+	m_requiredVeterancy = LEVEL_REGULAR;	// GeneralsX @feature default: no rank gate
 	m_science.clear();
 	m_specialPower = nullptr;
 	m_buttonImage = nullptr;

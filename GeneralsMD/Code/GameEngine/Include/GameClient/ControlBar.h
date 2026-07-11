@@ -344,6 +344,9 @@ public:
 	RadiusCursorType getRadiusCursorType() const { return m_radiusCursor; }
 	WeaponSlotType getWeaponSlot() const { return m_weaponSlot; }
 	Int getMaxShotsToFire() const { return m_maxShotsToFire; }
+	// GeneralsX @feature rank-gated command abilities: minimum veterancy rank the owning unit
+	// must have for this button to be usable (>= comparison). LEVEL_REGULAR (default) = no gate.
+	VeterancyLevel getRequiredVeterancy() const { return m_requiredVeterancy; }
 	const ScienceVec& getScienceVec() const { return m_science; }
 	CommandButtonMappedBorderType getCommandButtonMappedBorderType() const { return m_commandButtonBorder; }
 	const Image* getButtonImage() const { return m_buttonImage;	}
@@ -391,6 +394,7 @@ private:
 	AsciiString										m_conflictingLabel;						///< Description for the current command if it can't be selected due to multually-exclusive choice.
 	WeaponSlotType								m_weaponSlot;									///< for commands that refer to a weapon slot
 	Int														m_maxShotsToFire;							///< for commands that fire weapons
+	VeterancyLevel								m_requiredVeterancy;					///< GeneralsX @feature min rank to use this button (>=), default LEVEL_REGULAR
 	ScienceVec										m_science;										///< actual science
 	CommandButtonMappedBorderType	m_commandButtonBorder;
 	AsciiString										m_buttonImageName;

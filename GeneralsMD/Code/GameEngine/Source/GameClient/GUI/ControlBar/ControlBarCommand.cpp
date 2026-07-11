@@ -1112,6 +1112,16 @@ CommandAvailability ControlBar::getCommandAvailability( const CommandButton *com
 		}
  	}
 
+	// GeneralsX @feature rank-gated command abilities: a button can require a minimum veterancy
+	// rank on the owning unit. This is the general engine mechanism (no specific ability wired
+	// here); data gates a button by adding RequiredVeterancy = <RANK>. Below the threshold the
+	// cameo greys out (COMMAND_RESTRICTED). LEVEL_REGULAR (default) means no gate.
+	if( command->getRequiredVeterancy() > LEVEL_REGULAR )
+	{
+		if( obj->getVeterancyLevel() < command->getRequiredVeterancy() )
+			return COMMAND_RESTRICTED;
+	}
+
 	// if the command requires an upgrade and we don't have it we can't do it
 	if( BitIsSet( command->getOptions(), NEED_UPGRADE ) )
 	{
