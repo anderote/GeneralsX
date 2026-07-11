@@ -402,6 +402,7 @@ set(GAMEENGINE_SRC
     Include/GameLogic/Module/RailroadGuideAIUpdate.h
     Include/GameLogic/Module/RebuildHoleBehavior.h
     Include/GameLogic/Module/RebuildHoleExposeDie.h
+    Include/GameLogic/Module/RespawnAtBuildingDie.h
     Include/GameLogic/Module/RepairDockUpdate.h
     Include/GameLogic/Module/ReplaceObjectUpgrade.h
     Include/GameLogic/Module/RiderChangeContain.h
@@ -932,6 +933,7 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/Die/FXListDie.cpp
     Source/GameLogic/Object/Die/KeepObjectDie.cpp
     Source/GameLogic/Object/Die/RebuildHoleExposeDie.cpp
+    Source/GameLogic/Object/Die/RespawnAtBuildingDie.cpp
     Source/GameLogic/Object/Die/SpecialPowerCompletionDie.cpp
     Source/GameLogic/Object/Die/UpgradeDie.cpp
     Source/GameLogic/Object/ExperienceTracker.cpp

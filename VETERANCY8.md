@@ -158,6 +158,83 @@ labels `GUI:VeterancyRegular` .. `GUI:VeterancyHeroic5`, `GUI:VeterancyProgress`
 when the labels are absent from the string file - localizable, but no CSF additions are
 required.
 
+## "Edge of Tomorrow" respawn (engine half)
+
+New engine capability, mirrored in both trees: `RespawnAtBuildingDie` (a die module) plus
+its runtime companion `RespawnMarkerUpdate` (an update module for the invisible countdown
+proxy - the RebuildHole idiom, since the dying object cannot host its own timer).
+
+Semantics: when a unit carrying the die module is killed while (a) its player - or the
+object itself - has the `TriggeredBy` upgrade and (b) its veterancy is at least
+`RequiredVeterancy`, then `Delay` ms later the same object template is recreated at the
+**nearest friendly `RespawnAtKindOf` building** (nearest to the death spot), exiting via
+the building's production door / rally point when it has an exit interface (else placed at
+the building's edge), with veterancy level **and exact XP** restored
+(`PreserveExperience`) and full health (`FullHealth`).
+
+Edge cases handled:
+
+- **No qualifying building alive when the timer expires**: no respawn (checked at respawn
+  time, so a building finished during the delay still counts; one under construction or
+  being sold does not).
+- **Death inside a transport/garrison**: works - `onDie` fires normally and nothing
+  depends on the dying object being in the open.
+- **Respawn loop**: the respawned unit keeps the module and can die and respawn again -
+  intentional (that's the movie). Each death spawns exactly one one-shot marker.
+- **Missing data**: if the `RespawnMarkerName` template is not defined (data layer not
+  installed) or lacks `RespawnMarkerUpdate`, the module is inert - no crash.
+- **Save/load**: the marker xfers all of its runtime state (template name, kindof mask,
+  frame, XP, level, flags), so a save during the delay window restores the pending respawn.
+
+The DATA half (PropCenter upgrade + wiring on China infantry) is a later data layer; it
+must ship exactly this:
+
+```ini
+; on each respawn-capable unit (e.g. China infantry):
+Behavior = RespawnAtBuildingDie ModuleTag_EdgeOfTomorrow
+  TriggeredBy        = Upgrade_ChinaEdgeOfTomorrow ; the PropCenter-researched upgrade
+  RequiredVeterancy  = HEROIC5                     ; minimum rank at death (default REGULAR)
+  RespawnAtKindOf    = COMMANDCENTER               ; nearest friendly building of this kind
+  Delay              = 10000                       ; ms from death to respawn
+  PreserveExperience = Yes                         ; restore rank + exact XP (default Yes)
+  FullHealth         = Yes                         ; force full health (default Yes)
+  RespawnMarkerName  = VeterancyRespawnMarker      ; countdown proxy template (below)
+End
+
+; the invisible countdown proxy (define once):
+Object VeterancyRespawnMarker
+  KindOf = INERT IMMOBILE UNATTACKABLE
+  Body = InactiveBody ModuleTag_Body
+  End
+  Behavior = RespawnMarkerUpdate ModuleTag_Respawn
+  End
+  Geometry = SPHERE
+  GeometryMajorRadius = 1.0
+  GeometryIsSmall = Yes
+End
+
+; the upgrade itself (PropCenter, ZH China):
+Upgrade Upgrade_ChinaEdgeOfTomorrow
+  DisplayName        = UPGRADE:ChinaEdgeOfTomorrow
+  Type               = PLAYER
+  BuildTime          = 60.0
+  BuildCost          = 2000
+  ButtonImage        = SNPCInternet ; placeholder - pick real art in the data layer
+End
+; plus a CommandButton (PLAYER_UPGRADE) added to the PropagandaCenter CommandSet.
+```
+
+Notes for the data layer: `TriggeredBy` is checked live at die time via
+`Player::hasUpgradeComplete` / `Object::hasUpgrade` (single upgrade name, no UpgradeMux
+activation state), so OBJECT-type upgrades on the unit also satisfy the gate. The usual
+`DieMuxData` filters (`DeathTypes`, `ExemptStatus`, ...) apply to the module as with any
+die module. `RequiredVeterancy` is a minimum (>=), parsed from `TheVeterancyNames`, so
+`HEROIC5` = only max-rank units return.
+
+Files: `Include/GameLogic/Module/RespawnAtBuildingDie.h`,
+`Source/GameLogic/Object/Die/RespawnAtBuildingDie.cpp` (both modules), registered in
+`Source/Common/Thing/ModuleFactory.cpp` - mirrored in both trees.
+
 ## Veterancy-gated behavior decisions
 
 - **Weapon sets**: units with `WeaponSet ... HERO` variants keep `WEAPONSET_HERO` set
