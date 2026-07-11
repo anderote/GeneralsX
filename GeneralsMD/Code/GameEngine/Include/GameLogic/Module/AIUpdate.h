@@ -674,6 +674,12 @@ public:
 	void setAllowedToChase( Bool allow ) { m_allowedToChase = allow; }
 	Bool isAllowedToChase() const { return m_allowedToChase; }
 
+	// GeneralsX @feature combat stances (per-unit posture; see UnitStance in AI.h).
+	void setStance( UnitStance stance );					///< set posture; also toggles pursuit (allowedToChase)
+	UnitStance getStance() const { return m_stance; }
+	Bool isStanceHoldingFire() const { return m_stance == STANCE_HOLD_FIRE; }		///< never auto-fire
+	Bool isStanceHoldingPosition() const { return m_stance == STANCE_HOLD_POSITION; }	///< fire but never move for AI reasons
+
 	// only for AIStateMachine.
 	virtual void friend_notifyStateMachineChanged();
 
@@ -797,6 +803,7 @@ private:
 	Bool				m_executingWaypointQueue;						///< if true, we are moving thru the waypoints
 	Bool				m_retryPath;								///< If true, we need to try the path a second time.  jba.
 	Bool				m_allowedToChase;						///< Allowed to pursue targets.
+	UnitStance	m_stance;										///< GeneralsX @feature combat stance (UnitStance); default STANCE_AGGRESSIVE
 	Bool				m_isInUpdate;								///< If true, we are inside our update method.
 	Bool				m_fixLocoInPostProcess;
 };

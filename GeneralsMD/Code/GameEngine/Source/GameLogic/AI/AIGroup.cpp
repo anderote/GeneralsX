@@ -3056,6 +3056,23 @@ AttitudeType AIGroup::getAttitude() const
 	return ATTITUDE_PASSIVE;
 }
 
+/**
+ * GeneralsX @feature combat stances: set the UnitStance posture on every member's AI.
+ * Deterministic - runs in the logic sim from a networked MSG_SET_UNIT_STANCE.
+ */
+void AIGroup::groupSetStance( Int stance, CommandSourceType /*cmdSource*/ )
+{
+	std::list<Object *>::iterator i;
+	for( i = m_memberList.begin(); i != m_memberList.end(); ++i )
+	{
+		AIUpdateInterface *ai = (*i)->getAIUpdateInterface();
+		if (ai)
+		{
+			ai->setStance( (UnitStance)stance );
+		}
+	}
+}
+
 void AIGroup::setMineClearingDetail( Bool set )
 {
 	std::list<Object *>::iterator i;

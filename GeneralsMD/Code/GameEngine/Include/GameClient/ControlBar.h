@@ -214,6 +214,7 @@ enum GUICommandType CPP_11(: Int)
 	GUI_COMMAND_SPECIAL_POWER_CONSTRUCT_FROM_SHORTCUT, ///< do a shortcut special power using the construct building interface
 
 	GUI_COMMAND_SELECT_ALL_UNITS_OF_TYPE,
+	GUI_COMMAND_SET_STANCE,								///< GeneralsX @feature set combat stance (UnitStance via the button's Stance= field)
 
 	// add more commands here, don't forget to update the string command list below too ...
 
@@ -268,6 +269,7 @@ static const char *const TheGuiCommandNames[] =
 	"SPECIAL_POWER_CONSTRUCT",
 	"SPECIAL_POWER_CONSTRUCT_FROM_SHORTCUT",
 	"SELECT_ALL_UNITS_OF_TYPE",
+	"SET_STANCE",
 
 	nullptr
 };
@@ -347,6 +349,8 @@ public:
 	// GeneralsX @feature rank-gated command abilities: minimum veterancy rank the owning unit
 	// must have for this button to be usable (>= comparison). LEVEL_REGULAR (default) = no gate.
 	VeterancyLevel getRequiredVeterancy() const { return m_requiredVeterancy; }
+	// GeneralsX @feature combat stances: which UnitStance a GUI_COMMAND_SET_STANCE button applies.
+	Int getCommandStance() const { return m_commandStance; }
 	const ScienceVec& getScienceVec() const { return m_science; }
 	CommandButtonMappedBorderType getCommandButtonMappedBorderType() const { return m_commandButtonBorder; }
 	const Image* getButtonImage() const { return m_buttonImage;	}
@@ -395,6 +399,7 @@ private:
 	WeaponSlotType								m_weaponSlot;									///< for commands that refer to a weapon slot
 	Int														m_maxShotsToFire;							///< for commands that fire weapons
 	VeterancyLevel								m_requiredVeterancy;					///< GeneralsX @feature min rank to use this button (>=), default LEVEL_REGULAR
+	Int														m_commandStance;							///< GeneralsX @feature UnitStance value for GUI_COMMAND_SET_STANCE, default STANCE_AGGRESSIVE(0)
 	ScienceVec										m_science;										///< actual science
 	CommandButtonMappedBorderType	m_commandButtonBorder;
 	AsciiString										m_buttonImageName;

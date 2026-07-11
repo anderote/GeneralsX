@@ -572,6 +572,8 @@ public:
 		MSG_LOGIC_CRC,															///< CRC from the logic passed around in a network game :)
 		MSG_SET_MINE_CLEARING_DETAIL,								///< CRC from the logic passed around in a network game :)
 		MSG_ENABLE_RETALIATION_MODE,								///< Turn retaliation mode on or off.
+		MSG_SET_UNIT_STANCE,												///< GeneralsX @feature (int stance) set combat stance on the selected group
+		MSG_DO_MOVETO_LINE,													///< GeneralsX @feature (location start, location end, int shiftDown) line/formation move
 
 		MSG_BEGIN_DEBUG_NETWORK_MESSAGES = 1900,		///< network messages that exist only in debug/internal builds. all grouped separately.
 

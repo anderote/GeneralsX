@@ -926,6 +926,10 @@ public:
 	void setAttitude( AttitudeType tude );	///< set the behavior modifier for this agent
 	AttitudeType getAttitude() const;				///< get the current behavior modifier state
 
+	// GeneralsX @feature combat stances: no-op in the Generals (non-ZH) tree; present only so the
+	// shared Core MSG_SET_UNIT_STANCE dispatch compiles. The stance behavior ships in GeneralsMD.
+	void groupSetStance( Int stance, CommandSourceType cmdSource );
+
 	Bool isIdle() const;
 	//Definition of busy -- when explicitly in the busy state. Moving or attacking is not considered busy!
 	Bool isBusy() const;

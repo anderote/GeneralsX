@@ -253,6 +253,10 @@ AIUpdateInterface::AIUpdateInterface( Thing *thing, const ModuleData* moduleData
 		m_turretAI[i] = nullptr;
 	m_turretSyncFlag = TURRET_INVALID;
 	m_attitude = ATTITUDE_NORMAL;
+	// GeneralsX @feature combat stances: default AGGRESSIVE == vanilla (auto-acquire + pursue).
+	// This also gives m_allowedToChase a defined initial value (pursuit on).
+	m_stance = STANCE_AGGRESSIVE;
+	m_allowedToChase = true;
 	m_nextMoodCheckTime = 0;
 #ifdef ALLOW_DEMORALIZE
 	m_demoralizedFramesLeft = 0;
@@ -4261,6 +4265,22 @@ void AIUpdateInterface::setAttitude( AttitudeType tude )
 }
 
 /**
+ * GeneralsX @feature combat stances: set the per-unit posture and derive pursuit from it.
+ * AGGRESSIVE pursues auto-acquired targets (allowedToChase); DEFENSIVE / HOLD_POSITION /
+ * HOLD_FIRE do not (they fire in place, or - for HOLD_FIRE - not at all). isAllowedToChase()
+ * is only consulted for CMD_FROM_AI (auto-acquired) attacks in the attack state machine, so
+ * an explicit player attack/force-fire order still pursues regardless of stance. The HOLD_FIRE
+ * auto-fire suppression is applied in getNextMoodTarget().
+ */
+void AIUpdateInterface::setStance( UnitStance stance )
+{
+	if( stance < STANCE_AGGRESSIVE || stance >= STANCE_COUNT )
+		return;	// ignore garbage (e.g. a malformed network message)
+	m_stance = stance;
+	setAllowedToChase( stance == STANCE_AGGRESSIVE );
+}
+
+/**
  * Get the current behavior modifier state
  */
 AttitudeType AIUpdateInterface::getAttitude() const
@@ -4504,6 +4524,12 @@ Object* AIUpdateInterface::getNextMoodTarget( Bool calledByAI, Bool calledDuring
 
 	// if we're dead, we can't attack
 	if (obj->isEffectivelyDead())
+		return nullptr;
+
+	// GeneralsX @feature combat stances: HOLD_FIRE never auto-acquires a target (weapons hold).
+	// This is the single funnel for mood/idle auto-acquisition, so gating here suppresses both
+	// the idle-scan and retaliation auto-fire. Explicit player attack orders bypass this path.
+	if (isStanceHoldingFire())
 		return nullptr;
 
 	if (obj->testStatus(OBJECT_STATUS_IS_USING_ABILITY)) {
@@ -5061,6 +5087,7 @@ void AIUpdateInterface::crc( Xfer *x )
 	* 3: Removed lastFrameMoved and repulsorCountdown; removed surrender and demoralize variables
 	* 4: Read m_curLocomotorSet from ini
 	* 5: TheSuperHackers @fix Fixed out-of-bounds xfer of m_guardTargetType
+	* 6: GeneralsX @feature combat stances - append m_stance (UnitStance)
 	*/
 // ------------------------------------------------------------------------------------------------
 void AIUpdateInterface::xfer( Xfer *xfer )
@@ -5069,7 +5096,7 @@ void AIUpdateInterface::xfer( Xfer *xfer )
 #if RETAIL_COMPATIBLE_CRC || RETAIL_COMPATIBLE_XFER_SAVE
 	const XferVersion currentVersion = 4;
 #else
-	const XferVersion currentVersion = 5;
+	const XferVersion currentVersion = 6;
 #endif
   XferVersion version = currentVersion;
   xfer->xferVersion( &version, currentVersion );
@@ -5297,6 +5324,16 @@ void AIUpdateInterface::xfer( Xfer *xfer )
 		xfer->xferInt(&repulsorCountdown);
 	}
 
+	// GeneralsX @feature combat stances: persist the per-unit stance (append-only, v6+).
+	// Older saves (or RETAIL_COMPATIBLE builds capped at v4) simply keep the ctor default
+	// STANCE_AGGRESSIVE, which is bit-for-bit vanilla behavior.
+	if (version >= 6)
+	{
+		xfer->xferUser(&m_stance, sizeof(m_stance));
+		// keep m_allowedToChase consistent with the loaded stance
+		if (xfer->getXferMode() == XFER_LOAD)
+			setAllowedToChase( m_stance == STANCE_AGGRESSIVE );
+	}
 
 }
 

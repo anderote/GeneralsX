@@ -101,6 +101,18 @@ const Image* ControlBar::m_rankHeroic5Icon	= nullptr;
 // CommandButton //////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+// GeneralsX @feature combat stances: INI names for the CommandButton "Stance =" field. MUST stay
+// in the same order as UnitStance / TheUnitStanceNames (AI.h): AGGRESSIVE=0 .. HOLD_FIRE=3. Kept
+// local here so ControlBar.cpp needs no AI.h include just for the parse.
+static const char *const TheCommandStanceNames[] =
+{
+	"AGGRESSIVE",
+	"DEFENSIVE",
+	"HOLD_POSITION",
+	"HOLD_FIRE",
+	nullptr
+};
+
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
 const FieldParse CommandButton::s_commandButtonFieldParseTable[] =
@@ -114,6 +126,8 @@ const FieldParse CommandButton::s_commandButtonFieldParseTable[] =
 	{ "MaxShotsToFire",				INI::parseInt,							 nullptr, offsetof( CommandButton, m_maxShotsToFire ) },
 	// GeneralsX @feature rank-gated command abilities: min veterancy rank to use this button.
 	{ "RequiredVeterancy",		INI::parseIndexList,				 TheVeterancyNames, offsetof( CommandButton, m_requiredVeterancy ) },
+	// GeneralsX @feature combat stances: which UnitStance a GUI_COMMAND_SET_STANCE button applies.
+	{ "Stance",								INI::parseIndexList,				 TheCommandStanceNames, offsetof( CommandButton, m_commandStance ) },
 	{ "Science",							INI::parseScienceVector,					 nullptr, offsetof( CommandButton, m_science ) },
 	{ "SpecialPower",					INI::parseSpecialPowerTemplate,			 nullptr, offsetof( CommandButton, m_specialPower ) },
 	{ "TextLabel",						INI::parseAsciiString,			 nullptr, offsetof( CommandButton, m_textLabel ) },
@@ -575,6 +589,7 @@ CommandButton::CommandButton()
 	m_weaponSlot = PRIMARY_WEAPON;
 	m_maxShotsToFire = 0x7fffffff;	// huge number
 	m_requiredVeterancy = LEVEL_REGULAR;	// GeneralsX @feature default: no rank gate
+	m_commandStance = 0;	// GeneralsX @feature default STANCE_AGGRESSIVE
 	m_science.clear();
 	m_specialPower = nullptr;
 	m_buttonImage = nullptr;

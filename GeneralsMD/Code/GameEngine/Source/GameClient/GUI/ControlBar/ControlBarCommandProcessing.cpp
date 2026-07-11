@@ -826,6 +826,15 @@ CBCommandStatus ControlBar::processCommandUI( GameWindow *control,
 
 		}
 
+		// --------------------------------------------------------------------------------------------
+		// GeneralsX @feature combat stances: apply the button's Stance= value to the selection.
+		case GUI_COMMAND_SET_STANCE:
+		{
+			GameMessage *msg = TheMessageStream->appendMessage( GameMessage::MSG_SET_UNIT_STANCE );
+			msg->appendIntegerArgument( commandButton->getCommandStance() );
+			break;
+		}
+
 #ifdef ALLOW_SURRENDER
 		// ------------------------------------------------------------------------------------------------
 		case GUI_COMMAND_POW_RETURN_TO_PRISON:

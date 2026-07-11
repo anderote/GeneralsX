@@ -328,6 +328,31 @@ enum AttitudeType CPP_11(: Int)
 	ATTITUDE_INVALID=3
 };
 
+// GeneralsX @feature combat stances: a per-unit, PLAYER-controllable posture that modulates
+// auto-target-acquisition and pursuit. This is distinct from AttitudeType/the mood matrix,
+// which only governs AI-controlled units (getMoodMatrixActionAdjustment returns Action_Ok for
+// human players). STANCE_AGGRESSIVE == 0 so a zero-initialized / pre-feature-save unit behaves
+// exactly like vanilla (auto-acquire + pursue). Written out in save/load xfer; do not renumber.
+enum UnitStance CPP_11(: Int)
+{
+	STANCE_AGGRESSIVE = 0,		///< auto-acquire and PURSUE targets (vanilla default behavior)
+	STANCE_DEFENSIVE  = 1,		///< auto-acquire and fire on in-range targets, do NOT pursue out of range
+	STANCE_HOLD_POSITION = 2,	///< fire on in-range targets but never move for AI reasons (no pursue / no reposition)
+	STANCE_HOLD_FIRE  = 3,		///< never auto-fire (weapons hold); explicit player orders still fire
+	STANCE_COUNT
+};
+
+#ifdef DEFINE_UNITSTANCE_NAMES
+static const char *const TheUnitStanceNames[] =
+{
+	"AGGRESSIVE",
+	"DEFENSIVE",
+	"HOLD_POSITION",
+	"HOLD_FIRE",
+	nullptr
+};
+#endif
+
 enum CommandSourceType CPP_11(: Int);
 
 typedef UnsignedInt CommandSourceMask;
@@ -963,6 +988,8 @@ public:
 
 	void setAttitude( AttitudeType tude );	///< set the behavior modifier for this agent
 	AttitudeType getAttitude() const;				///< get the current behavior modifier state
+
+	void groupSetStance( Int stance, CommandSourceType cmdSource );	///< GeneralsX @feature set the combat stance (UnitStance) on all members
 
 	Bool isIdle() const;
 	//Definition of busy -- when explicitly in the busy state. Moving or attacking is not considered busy!

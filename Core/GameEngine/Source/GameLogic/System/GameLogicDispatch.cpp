@@ -499,6 +499,18 @@ void GameLogic::logicMessageDispatcher( GameMessage *msg, void *userData )
 			onEnableRetaliationMode(msg);
 			break;
 		}
+		case GameMessage::MSG_SET_UNIT_STANCE:
+		{
+			// GeneralsX @feature combat stances: apply the requested UnitStance to the whole
+			// selected group. Deterministic (int arg only). groupSetStance is a no-op in the
+			// Generals (non-ZH) tree, which has no per-unit stance behavior.
+			if( currentlySelectedGroup )
+			{
+				const Int stance = msg->getArgument( 0 )->integer;
+				currentlySelectedGroup->groupSetStance( stance, CMD_FROM_PLAYER );
+			}
+			break;
+		}
 		case GameMessage::MSG_DO_WEAPON_AT_LOCATION:
 		{
 			onDoWeaponAtLocation(msg, currentlySelectedGroup);

@@ -251,3 +251,142 @@ Files: `Include/GameClient/ControlBar.h`,
 `Source/GameClient/GUI/ControlBar/ControlBar.cpp` (parse table + ctor),
 `Source/GameClient/GUI/ControlBar/ControlBarCommand.cpp`
 (`getCommandAvailability`).
+
+---
+
+# GeneralsX Engine Features - "Command & Control" batch
+
+Order-system features on top of the QoL batch. GeneralsMD (Zero Hour / `z_generals`)
+is the target; shared `Core/` order dispatch is touched where required and the
+`Generals` tree gets the minimal mirror needed to keep `g_generals` compiling.
+Each feature is a separate commit; INI/order contracts below are authoritative for a
+future data layer. All features are inert / backward-compatible with no INI edits.
+
+## C0. Crash fix family: container-death rider ejection
+
+A recurring mid-skirmish `SIGSEGV` when a container (vehicle / garrisoned building)
+dies while carrying infantry that was **also** killed by the same damage event
+(dense garrison + AoE / chain damage). Same family as the earlier `onDisabledEdge`
+fix (`bc51e34`).
+
+**Root cause:** `OpenContain::onDie` runs `killRidersWhoAreNotFreeToExit()` /
+`processDamageToContained()`, which call `destroyObject()`/`kill()` on riders.
+`destroyObject()` sets `OBJECT_STATUS_DESTROYED` immediately but **defers** teardown,
+so already-destroyed riders remain in `m_containList`. `removeAllContained()` then
+ejects them via `removeFromContainViaIterator`, which re-places them in the world
+(`addOrRemoveObjFromWorld` / `setPosition` -> `handlePartitionCellMaintenance` ->
+`handleShroud` -> `unlook`; and `onRemoving` -> `clearDisabled` -> `onDisabledEdge`),
+dereferencing partition / behavior state already freed & nulled in `~Object`
+(`m_partitionLastLook` etc.) -> `SIGSEGV far=0x1c`.
+
+**Fix (deterministic, only the crashing edge changes):**
+- **Root-cause guard** at the chokepoint `OpenContain::removeFromContainViaIterator`:
+  `rider->isDestroyed()` (reliable tombstone - `OBJECT_STATUS_DESTROYED` is set early
+  and never cleared) -> keep list/count bookkeeping but **skip all live-object
+  placement & notification**; the rider is reaped normally on the destruction pass.
+  `isDestroyed()==false` guarantees partition state is intact, so the live path is
+  byte-identical; merely-dead-but-not-destroyed riders still eject normally.
+- **Belt-and-suspenders** null guards on `Object::handlePartitionCellMaintenance`
+  and `Object::unlook` (`m_partitionLastLook == nullptr`).
+
+Audited the full call tree (`removeFromContainViaIterator`, `handlePartitionCellMaintenance`,
+`unlook`/`handleShroud`/`look`/value/threat, `onDisabledEdge`, `processDamageToContained`,
+`killRidersWhoAreNotFreeToExit`, `onDelete`/`onCollide`, `SightingInfo::isInvalid`).
+No INI.
+
+Files: `Source/GameLogic/Object/Contain/OpenContain.cpp`,
+`Source/GameLogic/Object/Object.cpp`.
+
+## C1. Multi-select buildings + bulk build order
+
+Selecting several production buildings and clicking a build cameo now queues the
+unit at **every** selected compatible factory, not just the primary (e.g. select 5
+Barracks, click Ranger -> all 5 queue it). Composes with the QoL shift-x5 (5 each
+across N buildings). Deterministic & network-safe: still N ordinary
+`MSG_QUEUE_UNIT_CREATE` messages, each now carrying an **explicit producer objectID**
+(3rd arg). The logic layer validates that object is owned by the message player
+(anti-exploit) and routes the queue there; single-arg senders keep the retail
+single-selection path. No INI.
+
+Files: `Source/GameClient/GUI/ControlBar/ControlBarCommandProcessing.cpp`
+(`GUI_COMMAND_UNIT_BUILD` fan-out), `Core/.../GameLogicDispatch.cpp`
+(`onQueueUnitCreate` explicit-producer path).
+
+## C2. Combat stances (per-unit posture)
+
+A per-unit `UnitStance` state, player-settable, that modulates auto-target-acquisition
+and pursuit. Distinct from `AttitudeType`/the mood matrix, which only governs
+**AI-controlled** units (`getMoodMatrixActionAdjustment` returns `Action_Ok` for human
+players) - stances work for human player units.
+
+Stances (enum `UnitStance` in `AI.h`; INI names in parens):
+
+| Stance | INI name | Behavior |
+|--------|----------|----------|
+| `STANCE_AGGRESSIVE` (0, default) | `AGGRESSIVE` | auto-acquire **and pursue** (vanilla) |
+| `STANCE_DEFENSIVE` (1) | `DEFENSIVE` | auto-acquire, fire in range, **no pursuit** |
+| `STANCE_HOLD_POSITION` (2) | `HOLD_POSITION` | fire in range, no pursuit (never move for AI reasons) |
+| `STANCE_HOLD_FIRE` (3) | `HOLD_FIRE` | **never auto-fire** (explicit orders still fire) |
+
+**Mechanism.** `AIUpdateInterface::setStance()` stores the stance and derives pursuit:
+`setAllowedToChase(stance == AGGRESSIVE)`. `m_allowedToChase` is consulted only for
+`CMD_FROM_AI` (auto-acquired) attacks in the attack state machine, so an explicit
+player attack / force-fire order pursues regardless of stance. `HOLD_FIRE` is enforced
+in `getNextMoodTarget()` (the single funnel for idle-scan + retaliation auto-fire),
+which returns null - explicit orders bypass it. Default `AGGRESSIVE == 0` so a
+zero-initialized / pre-feature unit is bit-for-bit vanilla. Xfer version bumped
+**5 -> 6** (non-retail; retail-compatible builds cap at v4 and simply don't persist
+stance, loading as `AGGRESSIVE`).
+
+**Command / order contract (for the data layer):**
+- New `GUICommandType` **`GUI_COMMAND_SET_STANCE`** with a `CommandButton` field
+  **`Stance = DEFENSIVE`** (`AGGRESSIVE`/`DEFENSIVE`/`HOLD_POSITION`/`HOLD_FIRE`).
+  Clicking issues the networked **`MSG_SET_UNIT_STANCE`** (int stance).
+- Data adds 4 `CommandButton` blocks (one per stance) and wires them onto unit
+  command sets. Example:
+  ```ini
+  CommandButton Command_StanceDefensive
+    Command = SET_STANCE
+    Stance  = DEFENSIVE
+    ButtonImage = SNMoveOrder   ; placeholder - pick real art in the data layer
+  End
+  ```
+- Dispatch: `MSG_SET_UNIT_STANCE` -> `AIGroup::groupSetStance(stance)` fans out to
+  every selected member's AI. Deterministic (int arg only). No-op stub in the
+  `Generals` tree (behavior is ZH-only).
+
+**Per-building default stance (INI contract, `ProductionUpdate` block):**
+```ini
+Behavior = ProductionUpdate ModuleTag_xx
+  DefaultUnitStance = DEFENSIVE   ; units roll off this factory in this stance
+  ; ...                          ; omitted / -1 = leave AGGRESSIVE (vanilla)
+End
+```
+Applied to each produced unit as it exits the factory. This is the intended fix for
+"artillery won't shoot / tanks roll off too aggressive": ship artillery factories
+with `DefaultUnitStance = DEFENSIVE` (or `HOLD_POSITION`) so artillery holds ground.
+
+**Note on target-type preference (separate from stance):** "tanks ignore buildings /
+artillery won't shoot units" is partly a **target-selection preference** problem
+(which target the unit picks among several), NOT posture. Stance only controls
+*whether* the unit acquires/pursues, not *which* target it prefers. A separate fix
+(weapon `AntiMask` / target-type priority tuning, or a target-preference field) is
+needed for the preference half; this feature does not address it.
+
+**Deferred / notes:** `DEFENSIVE` and `HOLD_POSITION` currently share the same combat
+behavior (fire in range, no pursuit); the finer "`HOLD_POSITION` also refuses
+get-out-of-way / scatter / repulsor moves" distinction is not yet wired (the enum,
+command and INI contract preserve it for a future refinement). All four stances,
+the command mechanism, and the per-building default ship and are deterministic.
+
+Files: `Include/GameLogic/AI.h` (`UnitStance` enum + `groupSetStance` decl),
+`Include/GameLogic/Module/AIUpdate.h` + `Source/GameLogic/Object/Update/AIUpdate.cpp`
+(`m_stance`, `setStance`, `getNextMoodTarget` gate, xfer v6),
+`Source/GameLogic/AI/AIGroup.cpp` (`groupSetStance`),
+`Include/GameClient/ControlBar.h` + `Source/GameClient/GUI/ControlBar/ControlBar.cpp`
+(`GUI_COMMAND_SET_STANCE` + `Stance` field), `.../ControlBarCommandProcessing.cpp`
+(issue message), `Include/Common/MessageStream.h` + `Source/Common/MessageStream.cpp`
+(`MSG_SET_UNIT_STANCE`), `Include/GameLogic/Module/ProductionUpdate.h` +
+`Source/GameLogic/Object/Update/ProductionUpdate.cpp` (`DefaultUnitStance`),
+`Core/.../GameLogicDispatch.cpp` (dispatch). Generals tree: `MessageStream.*`, `AI.h`,
+`AIGroup.cpp` minimal mirror (no-op `groupSetStance`).

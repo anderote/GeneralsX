@@ -53,6 +53,7 @@
 #include "GameLogic/Module/ParkingPlaceBehavior.h"
 #include "GameLogic/Module/ProductionUpdate.h"
 #include "GameLogic/Object.h"
+#include "GameLogic/Module/AIUpdate.h"	// GeneralsX @feature combat stances: setStance on produced units
 #include "GameLogic/ScriptEngine.h"
 
 
@@ -103,7 +104,19 @@ ProductionUpdateModuleData::ProductionUpdateModuleData()
 	m_quantityModifiers.clear();
 	m_maxQueueEntries = 9;
 	m_disabledTypesToProcess = MAKE_DISABLED_MASK(DISABLED_HELD);
+	m_defaultUnitStance = -1;	// GeneralsX @feature: -1 = don't override (produced units stay AGGRESSIVE)
 }
+
+// GeneralsX @feature combat stances: INI names for the "DefaultUnitStance =" field on a
+// production building. MUST match UnitStance / TheUnitStanceNames (AI.h) order.
+static const char *const TheProductionStanceNames[] =
+{
+	"AGGRESSIVE",
+	"DEFENSIVE",
+	"HOLD_POSITION",
+	"HOLD_FIRE",
+	nullptr
+};
 
 //-------------------------------------------------------------------------------------------------
 /*static*/ void ProductionUpdateModuleData::parseAppendQuantityModifier( INI* ini, void *instance, void *store, const void* /*userData*/ )
@@ -135,6 +148,8 @@ ProductionUpdateModuleData::ProductionUpdateModuleData()
 		{ "ConstructionCompleteDuration", INI::parseDurationUnsignedInt, nullptr, offsetof( ProductionUpdateModuleData, m_constructionCompleteDuration ) },
 		{ "QuantityModifier",	parseAppendQuantityModifier, nullptr, offsetof( ProductionUpdateModuleData, m_quantityModifiers ) },
 		{ "DisabledTypesToProcess",	DisabledMaskType::parseFromINI, nullptr, offsetof( ProductionUpdateModuleData, m_disabledTypesToProcess ) },
+		// GeneralsX @feature combat stances: default posture units roll off this factory with.
+		{ "DefaultUnitStance",	INI::parseIndexList, TheProductionStanceNames, offsetof( ProductionUpdateModuleData, m_defaultUnitStance ) },
 		{ nullptr, nullptr, nullptr, 0 }
 	};
   p.add(dataFieldParse);
@@ -816,6 +831,16 @@ UpdateSleepTime ProductionUpdate::update()
 																	creationBuilding->getControllingPlayer()->getDefaultTeam() );
 
 							newObj->setProducer(creationBuilding);
+
+							// GeneralsX @feature combat stances: roll the unit off with this factory's
+							// configured default stance (DefaultUnitStance INI). -1 leaves the unit at its
+							// ctor default (AGGRESSIVE == vanilla). setStance also syncs pursuit.
+							if( d->m_defaultUnitStance >= 0 )
+							{
+								AIUpdateInterface *newAI = newObj->getAIUpdateInterface();
+								if( newAI )
+									newAI->setStance( (UnitStance)d->m_defaultUnitStance );
+							}
 
 							// call the exit interface to do the rally point and position stuff
 							exitInterface->exitObjectViaDoor( newObj, exitDoor );

@@ -131,6 +131,7 @@ public:
 	std::vector<QuantityModifier>	m_quantityModifiers;						///< Quantity modifiers modify the number of specified object to created whenever produced.
   Int														m_maxQueueEntries;							///< max things that can be queued at once.
 	DisabledMaskType							m_disabledTypesToProcess;
+	Int														m_defaultUnitStance;						///< GeneralsX @feature: UnitStance produced units roll off with; -1 = leave default (AGGRESSIVE)
 
 	ProductionUpdateModuleData();
 	static void buildFieldParse(MultiIniFieldParse& p);

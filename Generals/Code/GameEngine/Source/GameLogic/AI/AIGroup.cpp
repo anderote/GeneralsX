@@ -2964,6 +2964,12 @@ AttitudeType AIGroup::getAttitude() const
 	return ATTITUDE_PASSIVE;
 }
 
+// GeneralsX @feature combat stances: no-op stub in the Generals (non-ZH) tree so the shared
+// Core MSG_SET_UNIT_STANCE dispatch links. Per-unit stance behavior ships only in GeneralsMD.
+void AIGroup::groupSetStance( Int /*stance*/, CommandSourceType /*cmdSource*/ )
+{
+}
+
 void AIGroup::setMineClearingDetail( Bool set )
 {
 	std::list<Object *>::iterator i;
