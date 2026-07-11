@@ -680,6 +680,19 @@ void OpenContain::removeFromContainViaIterator( ContainedItemsList::iterator it,
 */
 	Object *rider = *it;
 
+	// GeneralsX @crashfix (ROOT CAUSE for the container-death rider-ejection crash family;
+	// see also bc51e34 onDisabledEdge and the unlook/SightingInfo guards). A rider destroyed
+	// by the SAME damage event that killed this container can still sit in m_containList when
+	// the container's onDie -> removeAllContained ejects it. destroyObject() flags
+	// OBJECT_STATUS_DESTROYED immediately but defers teardown, so the rider may already have
+	// had its partition/behavior state freed & nulled. Running live-object ejection on it
+	// (addOrRemoveObjFromWorld / setPosition -> handlePartitionCellMaintenance -> handleShroud
+	// -> unlook; onRemoving -> clearDisabled -> onDisabledEdge) then dereferences freed state
+	// and SIGSEGVs. isDestroyed() reads OBJECT_STATUS_DESTROYED (set early, never cleared) so
+	// it is a reliable tombstone. For a destroyed rider we keep the list/count bookkeeping but
+	// SKIP all live-object placement & notification; it is reaped on the destruction pass.
+	const Bool riderDestroyed = rider->isDestroyed();
+
 	// remove item from list
 	m_containList.erase(it);
 	m_containListSize--;
@@ -687,7 +700,7 @@ void OpenContain::removeFromContainViaIterator( ContainedItemsList::iterator it,
 	{
 		DEBUG_ASSERTCRASH( m_stealthUnitsContained > 0, ("OpenContain::removeFromContainViaIterator - Removing stealth unit but stealth count is %d", m_stealthUnitsContained) );
 		m_stealthUnitsContained--;
-		if( exposeStealthUnits )
+		if( exposeStealthUnits && !riderDestroyed )
 		{
 			StealthUpdate* stealth = rider->getStealth();
 			if( stealth )
@@ -702,6 +715,9 @@ void OpenContain::removeFromContainViaIterator( ContainedItemsList::iterator it,
 		m_heroUnitsContained--;
 	}
 
+	// @crashfix: an already-destroyed rider skips all live-object work below (see note above).
+	if( riderDestroyed )
+		return;
 
 	if (isEnclosingContainerFor( rider ))
 	{
