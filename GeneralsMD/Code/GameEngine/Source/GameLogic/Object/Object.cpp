@@ -3029,6 +3029,11 @@ void Object::scoreTheKill( const Object *victim )
 		controller->doBountyForKill(this, victim);
 	}
 
+	// GeneralsX @feature per-unit kill counter: credit this enemy kill even if the killer
+	// is not trainable (so the single-unit stats panel can show a lifetime kill tally).
+	if (m_experienceTracker)
+		m_experienceTracker->addKill();
+
 	// Now handle experience, if we can gain any
 	if (m_experienceTracker && m_experienceTracker->isAcceptingExperiencePoints())
 	{

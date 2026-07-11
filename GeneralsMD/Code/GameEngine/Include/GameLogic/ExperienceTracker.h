@@ -62,6 +62,10 @@ public:
 	Real getExperienceScalar() const { return m_experienceScalar; }
 	void setExperienceScalar( Real scalar ) { m_experienceScalar = scalar; }
 
+	// GeneralsX @feature per-unit kill counter (surfaced in the single-unit stats panel).
+	Int getKillCount() const { return m_killCount; }		///< How many enemy objects this unit has destroyed
+	void addKill() { ++m_killCount; }										///< Credit one enemy kill
+
 	// --------------- inherited from Snapshot interface --------------
 	virtual void crc( Xfer *xfer ) override;
 	virtual void xfer( Xfer *xfer ) override;
@@ -74,4 +78,5 @@ private:
 	ObjectID					m_experienceSink;										///< ID of object I have pledged my experience point gains to
 	Real							m_experienceScalar;									///< Scales any experience gained by this multiplier.
 	Bool							m_isTrainable;											///< Can I gain experience?
+	Int								m_killCount;												///< GeneralsX @feature enemy objects this unit has destroyed
 };

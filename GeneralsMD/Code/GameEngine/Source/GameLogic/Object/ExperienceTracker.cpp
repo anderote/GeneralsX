@@ -43,7 +43,8 @@ ExperienceTracker::ExperienceTracker(Object *parent) :
 	m_currentLevel(LEVEL_REGULAR),
 	m_experienceSink(INVALID_ID),
 	m_experienceScalar( 1.0f ),
-	m_currentExperience(0)
+	m_currentExperience(0),
+	m_killCount(0)
 {
 	resetTrainable();
 }
@@ -259,6 +260,7 @@ void ExperienceTracker::crc( Xfer *xfer )
 	* Version Info:
 	* 1: Initial version
 	* 2: TheSuperHackers @tweak Serialize m_isTrainable
+	* 3: GeneralsX @feature Serialize m_killCount (per-unit kill counter)
 	*/
 // ----------------------------------------------------------------------------
 void ExperienceTracker::xfer( Xfer *xfer )
@@ -268,7 +270,7 @@ void ExperienceTracker::xfer( Xfer *xfer )
 #if RETAIL_COMPATIBLE_XFER_SAVE
 	XferVersion currentVersion = 1;
 #else
-	XferVersion currentVersion = 2;
+	XferVersion currentVersion = 3;
 #endif
 	XferVersion version = currentVersion;
 	xfer->xferVersion( &version, currentVersion );
@@ -290,6 +292,10 @@ void ExperienceTracker::xfer( Xfer *xfer )
 
 	if (version >= 2)
 		xfer->xferBool(&m_isTrainable);
+
+	// GeneralsX @feature per-unit kill counter
+	if (version >= 3)
+		xfer->xferInt(&m_killCount);
 }
 
 //-----------------------------------------------------------------------------
