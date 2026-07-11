@@ -50,7 +50,7 @@ public:
 	virtual Int getOnScreenParticleCount() override { return m_onScreenParticleCount; }
 
 private:
-	enum { MAX_POINTS_PER_GROUP = 512 };
+	enum { MAX_POINTS_PER_GROUP = 2048 };
 
 	PointGroupClass *m_pointGroup;							///< the point group that contains all of the particles
 	StreakLineClass *m_streakLine;							///< the streak class that contains all of the streaks
