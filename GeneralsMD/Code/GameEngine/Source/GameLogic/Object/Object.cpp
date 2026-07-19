@@ -3948,6 +3948,13 @@ void Object::friend_adjustPowerForPlayer( Bool incoming )
 //-------------------------------------------------------------------------------------------------
 void Object::onDisabledEdge(Bool becomingDisabled)
 {
+	// GeneralsX @bugfix: collision-driven passenger eviction (OpenContain::onCollide
+	// -> onRemoving -> clearDisabled) can reach this on an object whose deferred
+	// teardown already began -- the behavior array is gone by then. Deterministic
+	// tombstone guard, same family as removeFromContainViaIterator's isDestroyed().
+	if( isDestroyed() || m_behaviors == nullptr )
+		return;
+
 	// rip through the behavior modules and call the onDisabledEdge for any modules that care
 	for( BehaviorModule **module = m_behaviors; *module; ++module )
 		(*module)->onDisabledEdge( becomingDisabled );
