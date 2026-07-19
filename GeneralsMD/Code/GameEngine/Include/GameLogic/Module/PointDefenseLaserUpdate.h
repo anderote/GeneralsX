@@ -51,6 +51,7 @@ public:
 	Real						m_scanRange;
 	Real						m_velocityFactor;
 	Bool						m_veterancyBoost;		///< if true, apply the owner's weapon bonus conditions (veterancy etc.) to range & rate of fire
+	Bool						m_interceptBallistics;	///< if true, also target ballistic shells (KINDOF_PROJECTILE) in addition to the KindOf target masks
 
 	PointDefenseLaserUpdateModuleData();
 	static void buildFieldParse(MultiIniFieldParse& p);

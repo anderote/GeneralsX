@@ -295,7 +295,8 @@ void PropagandaTowerBehavior::effectLogic( Object *obj, Bool giving,
 	// if giving the effect
 	if( giving )
 	{
-		if ( obj->hasAnyDamageWeapon() == TRUE )
+		// GeneralsX @feature Structures get healing only -- no ENTHUSIASTIC/SUBLIMINAL weapon bonus
+		if ( !obj->isKindOf( KINDOF_STRUCTURE ) && obj->hasAnyDamageWeapon() == TRUE )
 		{
 			if( obj->testWeaponBonusCondition( WEAPONBONUSCONDITION_ENTHUSIASTIC ) == FALSE )
 				obj->setWeaponBonusCondition( WEAPONBONUSCONDITION_ENTHUSIASTIC );
@@ -435,11 +436,11 @@ void PropagandaTowerBehavior::doScan()
 	PartitionFilterRelationship relationship( us, PartitionFilterRelationship::ALLOW_ALLIES );
 	PartitionFilterAlive filterAlive;
 	PartitionFilterSameMapStatus filterMapStatus(us);
-	PartitionFilterAcceptByKindOf filterOutBuildings(KINDOFMASK_NONE, MAKE_KINDOF_MASK(KINDOF_STRUCTURE));
+	// GeneralsX @feature Structures are no longer filtered out of the scan; they receive
+	// only the healing benefit in effectLogic, never the weapon bonus flags.
 	PartitionFilter *filters[] = {	&relationship,
 																	&filterAlive,
 																	&filterMapStatus,
-																	&filterOutBuildings,
 																	nullptr
 																};
 

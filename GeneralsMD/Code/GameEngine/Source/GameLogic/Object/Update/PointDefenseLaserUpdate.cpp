@@ -56,6 +56,7 @@ PointDefenseLaserUpdateModuleData::PointDefenseLaserUpdateModuleData()
 	m_scanRange					= 0.0f;
 	m_velocityFactor		= 0.0f;
 	m_veterancyBoost		= FALSE;
+	m_interceptBallistics	= FALSE;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -72,6 +73,7 @@ PointDefenseLaserUpdateModuleData::PointDefenseLaserUpdateModuleData()
 		{ "ScanRange",						INI::parseReal,									nullptr, offsetof( PointDefenseLaserUpdateModuleData, m_scanRange ) },
 		{ "PredictTargetVelocityFactor", INI::parseReal,					nullptr, offsetof( PointDefenseLaserUpdateModuleData, m_velocityFactor ) },
 		{ "VeterancyBoost",				INI::parseBool,									nullptr, offsetof( PointDefenseLaserUpdateModuleData, m_veterancyBoost ) },
+		{ "InterceptBallistics",	INI::parseBool,									nullptr, offsetof( PointDefenseLaserUpdateModuleData, m_interceptBallistics ) },
 		{ nullptr, nullptr, nullptr, 0 }
 	};
 	p.add(dataFieldParse);
@@ -279,6 +281,7 @@ Object* PointDefenseLaserUpdate::scanClosestTarget()
 
 	for( Object *other = iter->first(); other; other = iter->next() )
 	{
+		Bool ballisticIntercept = FALSE;
 		if( other->isAnyKindOf( data->m_primaryTargetKindOf ) )
 		{
 			//Primary target type
@@ -289,6 +292,16 @@ Object* PointDefenseLaserUpdate::scanClosestTarget()
 			//Secondary target type (use only if we can't find any primary targets)
 			index = 1;
 		}
+		else if( data->m_interceptBallistics
+					&& other->isKindOf( KINDOF_PROJECTILE )
+					&& !other->isKindOf( KINDOF_UNATTACKABLE ) )
+		{
+			// GeneralsX @feature InterceptBallistics: also accept ballistic ordnance (artillery
+			// and cannon shells are KINDOF_PROJECTILE without any missile KindOf) as secondary
+			// targets. Off by default, so vanilla scans are unchanged.
+			index = 1;
+			ballisticIntercept = TRUE;
+		}
 		else
 		{
 			//Not a valid target.
@@ -297,7 +310,9 @@ Object* PointDefenseLaserUpdate::scanClosestTarget()
 
 		// Since we don't have an actual weapon or a weapon set, we lose all of the automatic checks.
 		// "Borrow" the check for being an AA only laser to stop from shooting planes on airports.
-		if( !other->isAirborneTarget() && !(data->m_weaponTemplate->getAntiMask() & WEAPON_ANTI_GROUND) )
+		// Ballistic intercepts are exempt: only locomotor AI sets OBJECT_STATUS_AIRBORNE_TARGET,
+		// so dumb-fired shells never carry the status even while in flight.
+		if( !ballisticIntercept && !other->isAirborneTarget() && !(data->m_weaponTemplate->getAntiMask() & WEAPON_ANTI_GROUND) )
 			continue;
 
 			// order matters: we want to know if I consider it to be an enemy, not vice versa
