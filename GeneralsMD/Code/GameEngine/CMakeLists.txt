@@ -350,6 +350,7 @@ set(GAMEENGINE_SRC
     Include/GameLogic/Module/LifetimeUpdate.h
     Include/GameLogic/Module/LockWeaponCreate.h
     Include/GameLogic/Module/LocomotorSetUpgrade.h
+    Include/GameLogic/Module/MapRevealUpgrade.h
     Include/GameLogic/Module/MaxHealthUpgrade.h
     Include/GameLogic/Module/MinefieldBehavior.h
     Include/GameLogic/Module/MissileAIUpdate.h
@@ -1057,6 +1058,7 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/Upgrade/ExperienceScalarUpgrade.cpp
     Source/GameLogic/Object/Upgrade/GrantScienceUpgrade.cpp
     Source/GameLogic/Object/Upgrade/LocomotorSetUpgrade.cpp
+    Source/GameLogic/Object/Upgrade/MapRevealUpgrade.cpp
     Source/GameLogic/Object/Upgrade/MaxHealthUpgrade.cpp
     Source/GameLogic/Object/Upgrade/ModelConditionUpgrade.cpp
     Source/GameLogic/Object/Upgrade/ObjectCreationUpgrade.cpp

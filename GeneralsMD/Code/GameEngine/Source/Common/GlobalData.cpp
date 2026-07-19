@@ -461,6 +461,9 @@ GlobalData* GlobalData::m_theOriginal = nullptr;
 	{ "VeterancyMentorScanFrames",						INI::parseInt,						nullptr,	offsetof( GlobalData, m_veterancyMentorScanFrames ) },
 	{ "VeterancyMentorXP",										INI::parseInt,						nullptr,	offsetof( GlobalData, m_veterancyMentorXP ) },
 	{ "VeterancyMentorRadius",								INI::parseReal,						nullptr,	offsetof( GlobalData, m_veterancyMentorRadius ) },
+	// GeneralsX @feature Hard-AI cash stipend (optional; 0 amount = disabled).
+	{ "AICashInjectionHard",									INI::parseInt,						nullptr,	offsetof( GlobalData, m_aiCashInjectionHard ) },
+	{ "AICashInjectionHardSeconds",						INI::parseReal,						nullptr,	offsetof( GlobalData, m_aiCashInjectionHardSeconds ) },
 
 	{ "HumanSoloPlayerHealthBonus_Easy",					INI::parsePercentToReal,			nullptr,			offsetof( GlobalData, m_soloPlayerHealthBonusForDifficulty[PLAYER_HUMAN][DIFFICULTY_EASY] ) },
 	{ "HumanSoloPlayerHealthBonus_Normal",				INI::parsePercentToReal,			nullptr,			offsetof( GlobalData, m_soloPlayerHealthBonusForDifficulty[PLAYER_HUMAN][DIFFICULTY_NORMAL] ) },
@@ -1089,6 +1092,10 @@ GlobalData::GlobalData()
 	m_veterancyMentorScanFrames = 60;
 	m_veterancyMentorXP = 2;
 	m_veterancyMentorRadius = 150.0f;
+
+	// GeneralsX @feature Hard-AI cash stipend defaults: disabled (0 cash), 60-second period.
+	m_aiCashInjectionHard = 0;
+	m_aiCashInjectionHardSeconds = 60.0f;
 
 	for (i = 0; i < PLAYERTYPE_COUNT; ++i)
 	{

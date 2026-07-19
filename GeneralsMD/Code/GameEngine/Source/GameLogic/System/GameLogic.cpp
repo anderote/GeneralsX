@@ -3821,6 +3821,46 @@ static void updateVeterancyMentorAura( UnsignedInt frame )
 }
 
 //-------------------------------------------------------------------------------------------------
+/** GeneralsX @feature Hard-AI cash stipend.  Every AICashInjectionHardSeconds seconds (GameData,
+	* default 60), every AI-controlled (PLAYER_COMPUTER) player at HARD difficulty receives a lump
+	* AICashInjectionHard cash deposit (default 0 = feature disabled).  Frame-count driven and
+	* sim-side only, so it is fully deterministic; dead/observer players are skipped.  Uses the
+	* same deposit idiom as the cash bounty / Hack Internet income (Money::deposit +
+	* ScoreKeeper::addMoneyEarned), with the deposit sound suppressed for these silent AI grants. */
+//-------------------------------------------------------------------------------------------------
+static void updateAICashInjection( UnsignedInt frame )
+{
+	if( TheGlobalData == nullptr || TheGlobalData->m_aiCashInjectionHard <= 0 )
+		return;
+
+	Real seconds = TheGlobalData->m_aiCashInjectionHardSeconds;
+	if( seconds <= 0.0f )
+		seconds = 60.0f;
+	UnsignedInt intervalFrames = (UnsignedInt)(seconds * LOGICFRAMES_PER_SECOND);
+	if( intervalFrames < 1 )
+		intervalFrames = 1;
+	if( frame == 0 || (frame % intervalFrames) != 0 )
+		return;
+
+	for( Int i = 0; i < ThePlayerList->getPlayerCount(); ++i )
+	{
+		Player *player = ThePlayerList->getNthPlayer( i );
+		if( player == nullptr )
+			continue;
+		if( player->getPlayerType() != PLAYER_COMPUTER )
+			continue;
+		if( !player->isPlayerActive() )
+			continue;	// no stipend for dead or observing players
+		if( player->getPlayerDifficulty() != DIFFICULTY_HARD )
+			continue;
+
+		const UnsignedInt amount = (UnsignedInt)TheGlobalData->m_aiCashInjectionHard;
+		player->getMoney()->deposit( amount, FALSE );
+		player->getScoreKeeper()->addMoneyEarned( amount );
+	}
+}
+
+//-------------------------------------------------------------------------------------------------
 void GameLogic::update()
 {
 	USE_PERF_TIMER(GameLogic_update)
@@ -4068,6 +4108,12 @@ void GameLogic::update()
 	{
 		g_crashDiagUpdateStage = "GameLogic: veterancy mentor aura";
 		updateVeterancyMentorAura( now );
+	}
+
+	// GeneralsX @feature Hard-AI cash stipend (no-op unless AICashInjectionHard > 0)
+	{
+		g_crashDiagUpdateStage = "GameLogic: AI cash injection";
+		updateAICashInjection( now );
 	}
 
 	//

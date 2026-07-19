@@ -384,6 +384,12 @@ public:
 	Int m_veterancyMentorScanFrames;									///< frames between mentor scans (VeterancyMentorScanFrames, default 60)
 	Int m_veterancyMentorXP;													///< XP granted per scan to nearby friendlies (VeterancyMentorXP, default 2)
 	Real m_veterancyMentorRadius;											///< mentor aura radius (VeterancyMentorRadius, default 150)
+
+	// GeneralsX @feature Hard-AI cash stipend: every AICashInjectionHardSeconds seconds, every
+	// AI-controlled player at HARD difficulty receives a lump AICashInjectionHard cash deposit.
+	// Frame-count driven (deterministic sim side); 0 amount disables the feature entirely.
+	Int m_aiCashInjectionHard;												///< stipend amount (AICashInjectionHard, default 0 = off)
+	Real m_aiCashInjectionHardSeconds;								///< stipend period in seconds (AICashInjectionHardSeconds, default 60)
 	// GeneralsX @feature Extended veterancy: XP-threshold extrapolation multiplier for the
 	// FINAL rank only (LEVEL_LAST / HEROIC6).  Ranks with missing ExperienceRequired data
 	// extrapolate at 1.75x the previous increment; the last step uses this factor instead,
