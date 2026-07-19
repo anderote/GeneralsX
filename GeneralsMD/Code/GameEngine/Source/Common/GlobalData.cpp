@@ -472,6 +472,8 @@ GlobalData* GlobalData::m_theOriginal = nullptr;
 	{ "UnitHoverTooltipDelayMS",							INI::parseInt,						nullptr,	offsetof( GlobalData, m_unitHoverTooltipDelayMS ) },
 	// GeneralsX @feature WASD camera panning (client input only).
 	{ "WASDCameraPan",								INI::parseBool,				nullptr,			offsetof( GlobalData, m_wasdCameraPan ) },
+	// GeneralsX @feature Default LAN lobby preset (client lobby UI only).
+	{ "DefaultLANLobby2v6",						INI::parseBool,				nullptr,			offsetof( GlobalData, m_defaultLANLobby2v6 ) },
 
 	{ "HumanSoloPlayerHealthBonus_Easy",					INI::parsePercentToReal,			nullptr,			offsetof( GlobalData, m_soloPlayerHealthBonusForDifficulty[PLAYER_HUMAN][DIFFICULTY_EASY] ) },
 	{ "HumanSoloPlayerHealthBonus_Normal",				INI::parsePercentToReal,			nullptr,			offsetof( GlobalData, m_soloPlayerHealthBonusForDifficulty[PLAYER_HUMAN][DIFFICULTY_NORMAL] ) },
@@ -1114,6 +1116,7 @@ GlobalData::GlobalData()
 	m_unitHoverTooltipDelayMS = 400;
 
 	m_wasdCameraPan = FALSE;	// GeneralsX @feature WASD camera panning default off
+	m_defaultLANLobby2v6 = FALSE;	// GeneralsX @feature LAN 2v6 lobby preset default off
 
 	for (i = 0; i < PLAYERTYPE_COUNT; ++i)
 	{

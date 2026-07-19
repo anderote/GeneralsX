@@ -873,6 +873,44 @@ void LanGameOptionsMenuInit( WindowLayout *layout, void *userData )
 			TheLAN->GetMyGame()->setMapSize( it->second.m_filesize );
 
 			TheLAN->GetMyGame()->adjustSlotsForMap(); // BGC- adjust the slots for the selected map.
+
+			// GeneralsX @feature DefaultLANLobby2v6 (host only, initial state only): pre-populate
+			// the lobby as 2v6 -- host (slot 0) + one Open slot (slot 1) on team 1, and Hard AIs
+			// (SLOT_BRUTAL_AI = the "Hard" combo entry) on team 2 in every remaining slot the map
+			// supports.  Team item data is -1 = no team, 0..3 = Team 1..4, so team 1 == 0 and
+			// team 2 == 1.  Slots beyond the map's player count keep whatever adjustSlotsForMap
+			// just did (closed), and occupied slots are never touched.  Everything remains fully
+			// editable afterward; the standard RequestGameOptions broadcast below propagates this
+			// to joining clients like any hand-made setup.
+			if( TheGlobalData->m_defaultLANLobby2v6 )
+			{
+				const Int mapPlayers = it->second.m_numPlayers;
+
+				// host on team 1
+				slot->setTeamNumber( 0 );
+
+				// slot 1: keep Open for the second human, also team 1
+				if( mapPlayers > 1 )
+				{
+					LANGameSlot *humanSlot = game->getLANSlot( 1 );
+					if( humanSlot != nullptr && !humanSlot->isOccupied() )
+					{
+						humanSlot->setState( SLOT_OPEN );
+						humanSlot->setTeamNumber( 0 );
+					}
+				}
+
+				// slots 2..7: Hard AI on team 2, only where the map has room
+				for( Int slotIdx = 2; slotIdx < MAX_SLOTS && slotIdx < mapPlayers; ++slotIdx )
+				{
+					LANGameSlot *aiSlot = game->getLANSlot( slotIdx );
+					if( aiSlot != nullptr && !aiSlot->isOccupied() )
+					{
+						aiSlot->setState( SLOT_BRUTAL_AI );
+						aiSlot->setTeamNumber( 1 );
+					}
+				}
+			}
 		}
 
 		//GadgetTextEntrySetText(comboBoxPlayer[0], TheLAN->GetMyName());
