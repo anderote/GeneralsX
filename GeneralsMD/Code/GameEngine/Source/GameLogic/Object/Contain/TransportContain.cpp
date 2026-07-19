@@ -123,8 +123,9 @@ void TransportContainModuleData::buildFieldParse(MultiIniFieldParse& p)
 //-------------------------------------------------------------------------------------------------
 Int TransportContain::getContainMax() const
 {
+	// GeneralsX @feature ContainCapacityUpgrade: fold in runtime bonus slots granted by upgrades
 	if (getTransportContainModuleData())
-		return getTransportContainModuleData()->m_slotCapacity;
+		return getTransportContainModuleData()->m_slotCapacity + getContainBonusSlots();
 
 	return 0;
 }

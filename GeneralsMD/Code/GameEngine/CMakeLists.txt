@@ -281,6 +281,7 @@ set(GAMEENGINE_SRC
     Include/GameLogic/Module/CollideModule.h
     Include/GameLogic/Module/CommandButtonHuntUpdate.h
     Include/GameLogic/Module/CommandSetUpgrade.h
+    Include/GameLogic/Module/ContainCapacityUpgrade.h
     Include/GameLogic/Module/ContainModule.h
     Include/GameLogic/Module/ConvertToCarBombCrateCollide.h
     Include/GameLogic/Module/ConvertToHijackedVehicleCrateCollide.h
@@ -1054,6 +1055,7 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/Upgrade/ActiveShroudUpgrade.cpp
     Source/GameLogic/Object/Upgrade/ArmorUpgrade.cpp
     Source/GameLogic/Object/Upgrade/CommandSetUpgrade.cpp
+    Source/GameLogic/Object/Upgrade/ContainCapacityUpgrade.cpp
     Source/GameLogic/Object/Upgrade/CostModifierUpgrade.cpp
     Source/GameLogic/Object/Upgrade/ExperienceScalarUpgrade.cpp
     Source/GameLogic/Object/Upgrade/GrantScienceUpgrade.cpp

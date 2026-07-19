@@ -107,8 +107,9 @@ void MobNexusContainModuleData::buildFieldParse(MultiIniFieldParse& p)
 //-------------------------------------------------------------------------------------------------
 Int MobNexusContain::getContainMax() const
 {
+	// GeneralsX @feature ContainCapacityUpgrade: fold in runtime bonus slots granted by upgrades
 	if (getMobNexusContainModuleData())
-		return getMobNexusContainModuleData()->m_slotCapacity;
+		return getMobNexusContainModuleData()->m_slotCapacity + getContainBonusSlots();
 
 	return 0;
 }

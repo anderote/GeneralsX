@@ -706,6 +706,10 @@ protected:
 
 	void updateFloatingText();						///< Update function to move our floating text
 	void drawFloatingText();							///< Draw all our floating text
+	// GeneralsX @feature in-world unit hover tooltips: compact info panel near the cursor after a
+	// short dwell over a world object.  Client DISPLAY ONLY (reads sim state, writes nothing).
+	void drawUnitHoverTooltip();					///< Draw hover tooltip for the moused-over object
+	void freeHoverTooltipStrings();				///< Free the tooltip DisplayStrings
 	void clearFloatingText();							///< clear the floating text list
 
 	void clearWorldAnimations();					///< delete all world animations
@@ -903,6 +907,11 @@ protected:
 	MouseMode										m_mouseMode;
 	Int													m_mouseModeCursor;
 	DrawableID									m_mousedOverDrawableID;
+	// GeneralsX @feature in-world unit hover tooltips (client display only)
+	enum { MAX_HOVER_TOOLTIP_LINES = 7 };
+	DrawableID									m_hoverTooltipDrawableID;		///< drawable the cursor is currently resting on
+	UnsignedInt									m_hoverTooltipStartFrame;		///< client frame the current hover began
+	DisplayString								*m_hoverTooltipStrings[MAX_HOVER_TOOLTIP_LINES];	///< lazily created tooltip lines
 	Coord2D											m_scrollAmt;
 	Bool												m_isQuitMenuVisible;
 	Bool												m_messagesOn;

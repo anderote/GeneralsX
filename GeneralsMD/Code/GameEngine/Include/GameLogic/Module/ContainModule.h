@@ -138,6 +138,11 @@ public:
 
 	virtual Int getContainMax() const = 0; ///< The max needs to be virtual, but only two inheritors care.  -1 means "I don't care".
 
+	// GeneralsX @feature ContainCapacityUpgrade: grant extra passenger slots at runtime (upgrade
+	// driven).  Default is a no-op so containers without a per-object slot capacity can ignore it;
+	// OpenContain overrides it and folds the bonus into getContainMax().
+	virtual void addContainBonusSlots( Int slots ) { }
+
 	virtual ExitInterface* getContainExitInterface() = 0;
 
 	virtual void orderAllPassengersToExit( CommandSourceType, Bool instantly ) = 0; ///< All of the smarts of exiting are in the passenger's AIExit. removeAllFrommContain is a last ditch system call, this is the game Evacuate

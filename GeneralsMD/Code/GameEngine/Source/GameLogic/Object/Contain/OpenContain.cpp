@@ -141,6 +141,7 @@ OpenContain::OpenContain( Thing *thing, const ModuleData* moduleData ) : UpdateM
 	m_noFirePointsInArt = false;
 	m_whichExitPath = 1;
 	m_loadSoundsEnabled = TRUE;
+	m_bonusSlots = 0;	// GeneralsX @feature ContainCapacityUpgrade
 
   m_passengerAllowedToFire = getOpenContainModuleData()->m_passengersAllowedToFire;
   // overridable by setPass...()  in the parent interface (for use by upgrade module)
@@ -158,8 +159,27 @@ Int OpenContain::getContainMax() const
 {
 	const OpenContainModuleData *modData = getOpenContainModuleData();
 
-	return modData->m_containMax;
+	// GeneralsX @feature ContainCapacityUpgrade: leave CONTAIN_MAX_UNKNOWN (-1 == "don't care,
+	// infinite") alone, otherwise fold in any runtime bonus slots granted by upgrades
+	if( modData->m_containMax < 0 )
+		return modData->m_containMax;
 
+	return modData->m_containMax + getContainBonusSlots();
+
+}
+
+// ------------------------------------------------------------------------------------------------
+/** GeneralsX @feature ContainCapacityUpgrade: grant extra passenger slots at runtime.  The bonus
+	* is folded into getContainMax() (here and in the subclass overrides that read their own
+	* template slot capacity), which is the single funnel every capacity check, control-bar pip
+	* display and script query goes through. */
+// ------------------------------------------------------------------------------------------------
+void OpenContain::addContainBonusSlots( Int slots )
+{
+	if( slots <= 0 )
+		return;
+
+	m_bonusSlots += slots;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -1740,13 +1760,14 @@ void OpenContain::crc( Xfer *xfer )
 	* Version Info:
 	* 1: Initial version
 	* 2: Added m_passengerAllowedToFire
+	* 3: Added m_bonusSlots (GeneralsX @feature ContainCapacityUpgrade)
 	*/
 // ------------------------------------------------------------------------------------------------
 void OpenContain::xfer( Xfer *xfer )
 {
 
 	// version
-	XferVersion currentVersion = 2;
+	XferVersion currentVersion = 3;
 	XferVersion version = currentVersion;
 	xfer->xferVersion( &version, currentVersion );
 
@@ -1910,6 +1931,12 @@ void OpenContain::xfer( Xfer *xfer )
   {
     xfer->xferBool( &m_passengerAllowedToFire );
   }
+
+	// GeneralsX @feature ContainCapacityUpgrade: bonus passenger slots granted at runtime
+	if ( version >= 3 )
+	{
+		xfer->xferUnsignedInt( &m_bonusSlots );
+	}
 
 
 }

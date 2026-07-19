@@ -258,6 +258,8 @@ void AISkirmishPlayer::processBaseBuilding()
 
 				m_readyToBuildStructure = false;
 				m_structureTimer = TheAI->getAiData()->m_structureSeconds*static_cast<float>(LOGICFRAMES_PER_SECOND);
+				// GeneralsX @feature AIHardProductionDelayScale: hard AI builds structures more often
+				m_structureTimer = REAL_TO_INT_CEIL( m_structureTimer * getHardProductionDelayScale() );
 				if (m_player->getMoney()->countMoney() < TheAI->getAiData()->m_resourcesPoor) {
 					m_structureTimer = m_structureTimer/TheAI->getAiData()->m_structuresPoorMod;
 				}	else if (m_player->getMoney()->countMoney() > TheAI->getAiData()->m_resourcesWealthy) {
@@ -293,6 +295,8 @@ void AISkirmishPlayer::processBaseBuilding()
 
 						m_readyToBuildStructure = false;
 						m_structureTimer = TheAI->getAiData()->m_structureSeconds*LOGICFRAMES_PER_SECOND;
+						// GeneralsX @feature AIHardProductionDelayScale: hard AI builds structures more often
+						m_structureTimer = REAL_TO_INT_CEIL( m_structureTimer * getHardProductionDelayScale() );
 						if (m_player->getMoney()->countMoney() < TheAI->getAiData()->m_resourcesPoor) {
 							m_structureTimer = m_structureTimer/TheAI->getAiData()->m_structuresPoorMod;
 						}	else if (m_player->getMoney()->countMoney() > TheAI->getAiData()->m_resourcesWealthy) {
@@ -786,7 +790,8 @@ void AISkirmishPlayer::recruitSpecificAITeam(TeamPrototype *teamProto, Real recr
 			const ThingTemplate *thing = TheThingFactory->findTemplate( unitInfo[i].unitThingName );
 			if (thing)
 			{
-				int count = unitInfo[i].maxUnits;
+				// GeneralsX @feature AIHardTeamSizeScale: recruit up to the scaled maximum
+				int count = scaleTeamMaxUnits(unitInfo[i].maxUnits);
 				while (count>0) {
 					Object *unit = theTeam->tryToRecruit(thing, &teamProto->getTemplateInfo()->m_homeLocation, recruitRadius);
 					if (unit)

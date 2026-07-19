@@ -464,6 +464,12 @@ GlobalData* GlobalData::m_theOriginal = nullptr;
 	// GeneralsX @feature Hard-AI cash stipend (optional; 0 amount = disabled).
 	{ "AICashInjectionHard",									INI::parseInt,						nullptr,	offsetof( GlobalData, m_aiCashInjectionHard ) },
 	{ "AICashInjectionHardSeconds",						INI::parseReal,						nullptr,	offsetof( GlobalData, m_aiCashInjectionHardSeconds ) },
+	// GeneralsX @feature Hard-AI aggression scales (optional; 1.0 = vanilla behavior).
+	{ "AIHardTeamSizeScale",									INI::parseReal,						nullptr,	offsetof( GlobalData, m_aiHardTeamSizeScale ) },
+	{ "AIHardProductionDelayScale",						INI::parseReal,						nullptr,	offsetof( GlobalData, m_aiHardProductionDelayScale ) },
+	// GeneralsX @feature in-world unit hover tooltips (client display only).
+	{ "ShowUnitHoverTooltips",								INI::parseBool,						nullptr,	offsetof( GlobalData, m_showUnitHoverTooltips ) },
+	{ "UnitHoverTooltipDelayMS",							INI::parseInt,						nullptr,	offsetof( GlobalData, m_unitHoverTooltipDelayMS ) },
 
 	{ "HumanSoloPlayerHealthBonus_Easy",					INI::parsePercentToReal,			nullptr,			offsetof( GlobalData, m_soloPlayerHealthBonusForDifficulty[PLAYER_HUMAN][DIFFICULTY_EASY] ) },
 	{ "HumanSoloPlayerHealthBonus_Normal",				INI::parsePercentToReal,			nullptr,			offsetof( GlobalData, m_soloPlayerHealthBonusForDifficulty[PLAYER_HUMAN][DIFFICULTY_NORMAL] ) },
@@ -1096,6 +1102,14 @@ GlobalData::GlobalData()
 	// GeneralsX @feature Hard-AI cash stipend defaults: disabled (0 cash), 60-second period.
 	m_aiCashInjectionHard = 0;
 	m_aiCashInjectionHardSeconds = 60.0f;
+
+	// GeneralsX @feature Hard-AI aggression scale defaults: 1.0 = vanilla.
+	m_aiHardTeamSizeScale = 1.0f;
+	m_aiHardProductionDelayScale = 1.0f;
+
+	// GeneralsX @feature unit hover tooltip defaults: off, 400 ms dwell.
+	m_showUnitHoverTooltips = FALSE;
+	m_unitHoverTooltipDelayMS = 400;
 
 	for (i = 0; i < PLAYERTYPE_COUNT; ++i)
 	{

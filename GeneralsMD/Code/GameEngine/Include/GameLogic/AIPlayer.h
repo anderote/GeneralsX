@@ -207,6 +207,16 @@ public:
 
 	void setTeamDelaySeconds(Int delay) {m_teamSeconds = delay;}
 
+	// GeneralsX @feature Hard-AI aggression scales (GameData AIHardTeamSizeScale /
+	// AIHardProductionDelayScale).  Return 1.0 unless this is a PLAYER_COMPUTER player at
+	// DIFFICULTY_HARD; values are clamped to [0.25, 4.0] on read.  Applied where team
+	// template unit counts / production delays are CONSUMED, never at parse time (team
+	// templates are shared across players and difficulties).
+	Real getHardTeamSizeScale() const;
+	Real getHardProductionDelayScale() const;
+	Int scaleTeamMaxUnits( Int maxUnits ) const;	///< ceil(max * scale), >= 1
+	Int scaleTeamMinUnits( Int minUnits ) const;	///< floor(min * scale), never below authored min
+
 	/// Calculates the closest construction zone location based on a template.
 	Bool calcClosestConstructionZoneLocation( const ThingTemplate *constructTemplate, Coord3D *location );
 

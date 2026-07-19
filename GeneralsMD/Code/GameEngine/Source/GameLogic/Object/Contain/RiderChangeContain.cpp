@@ -122,8 +122,9 @@ void RiderChangeContainModuleData::buildFieldParse(MultiIniFieldParse& p)
 //-------------------------------------------------------------------------------------------------
 Int RiderChangeContain::getContainMax() const
 {
+	// GeneralsX @feature ContainCapacityUpgrade: fold in runtime bonus slots granted by upgrades
 	if (getRiderChangeContainModuleData())
-		return getRiderChangeContainModuleData()->m_slotCapacity;
+		return getRiderChangeContainModuleData()->m_slotCapacity + getContainBonusSlots();
 
 	return 0;
 }

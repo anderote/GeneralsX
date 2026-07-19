@@ -180,6 +180,10 @@ public:
 
 	virtual Int getContainMax() const override;
 
+	// GeneralsX @feature ContainCapacityUpgrade: runtime bonus passenger slots (upgrade driven)
+	virtual void addContainBonusSlots( Int slots ) override;	///< grant extra slots; <= 0 is ignored
+	Int getContainBonusSlots() const { return (Int)m_bonusSlots; }	///< for subclass getContainMax overrides
+
 	// ExitInterface
 	virtual Bool isExitBusy() const override {return FALSE;}	///< Contain style exiters are getting the ability to space out exits, so ask this before reserveDoor as a kind of no-commitment check.
 	virtual ExitDoorType reserveDoorForExit( const ThingTemplate* objType, Object *specificObject ) override { return DOOR_1; }
@@ -285,4 +289,5 @@ private:
 	Bool								m_rallyPointExists;										///< Only move to the rally point if this is true
 	Bool								m_loadSoundsEnabled;								///< Don't serialize -- used for disabling sounds during payload creation.
   Bool                m_passengerAllowedToFire;      ///< Newly promoted from the template data to the module for upgrade overriding access
+	UnsignedInt					m_bonusSlots;												///< GeneralsX @feature ContainCapacityUpgrade: extra passenger slots granted at runtime by upgrades
 };

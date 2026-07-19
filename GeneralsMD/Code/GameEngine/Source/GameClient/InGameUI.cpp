@@ -78,6 +78,8 @@
 #include "GameClient/GlobalLanguage.h"
 
 #include "GameLogic/AIGuard.h"
+#include "GameLogic/ExperienceTracker.h"
+#include "GameLogic/Module/BodyModule.h"
 #include "GameLogic/Weapon.h"
 #include "GameLogic/Object.h"
 #include "GameLogic/GameLogic.h"
@@ -1066,6 +1068,12 @@ InGameUI::InGameUI()
 	m_mouseModeCursor = Mouse::ARROW;
 	m_mousedOverDrawableID = INVALID_DRAWABLE_ID;
 
+	// GeneralsX @feature unit hover tooltips
+	m_hoverTooltipDrawableID = INVALID_DRAWABLE_ID;
+	m_hoverTooltipStartFrame = 0;
+	for( Int hoverLine = 0; hoverLine < MAX_HOVER_TOOLTIP_LINES; ++hoverLine )
+		m_hoverTooltipStrings[ hoverLine ] = nullptr;
+
 	m_currentlyPlayingMovie.clear();
 	m_militarySubtitle = nullptr;
 	m_popupMessageData = nullptr;
@@ -1298,6 +1306,9 @@ InGameUI::~InGameUI()
 
 	// clear floating text
 	clearFloatingText();
+
+	// GeneralsX @feature unit hover tooltips
+	freeHoverTooltipStrings();
 
 	// clear world animations
 	clearWorldAnimations();
@@ -2163,6 +2174,11 @@ void InGameUI::unregisterWindowLayout( WindowLayout *layout )
 //-------------------------------------------------------------------------------------------------
 void InGameUI::reset()
 {
+	// GeneralsX @feature unit hover tooltips: drop cached strings and hover state across games
+	freeHoverTooltipStrings();
+	m_hoverTooltipDrawableID = INVALID_DRAWABLE_ID;
+	m_hoverTooltipStartFrame = 0;
+
 	m_isQuitMenuVisible = FALSE;
 	m_inputEnabled = true;
 	// reset the command bar
@@ -4161,6 +4177,9 @@ void InGameUI::postDraw()
 	//draw superweapon ready multipliers
 	TheControlBar->drawSpecialPowerShortcutMultiplierText();
 
+	// GeneralsX @feature in-world unit hover tooltips (no-op unless ShowUnitHoverTooltips = Yes)
+	drawUnitHoverTooltip();
+
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -5462,6 +5481,200 @@ void InGameUI::drawFloatingText()
 			ftd->m_dString->draw(pos.x - (width / 2), pos.y, ftd->m_color,dropColor);
 		}
 
+	}
+}
+
+//-------------------------------------------------------------------------------------------------
+/** GeneralsX @feature in-world unit hover tooltips.  When the cursor rests on a world object for
+	* UnitHoverTooltipDelayMS (GameData, default 400 ms), draw a compact panel near the cursor with
+	* the object's details.  Pure client display: it reuses the existing hint path's world pick
+	* (m_mousedOverDrawableID) and only READS sim state, exactly like the under-healthbar veterancy
+	* readout precedent.  Enemy objects show name/HP only; shrouded or stealthed-to-viewer objects
+	* show nothing at all.  Gated on ShowUnitHoverTooltips (default No). */
+//-------------------------------------------------------------------------------------------------
+void InGameUI::freeHoverTooltipStrings()
+{
+	for( Int i = 0; i < MAX_HOVER_TOOLTIP_LINES; ++i )
+	{
+		if( m_hoverTooltipStrings[ i ] )
+		{
+			TheDisplayStringManager->freeDisplayString( m_hoverTooltipStrings[ i ] );
+			m_hoverTooltipStrings[ i ] = nullptr;
+		}
+	}
+}
+
+//-------------------------------------------------------------------------------------------------
+void InGameUI::drawUnitHoverTooltip()
+{
+	if( TheGlobalData == nullptr || !TheGlobalData->m_showUnitHoverTooltips )
+		return;
+
+	// reuse the existing hint path's world-object mouse pick
+	const DrawableID hoverID = getMousedOverDrawableID();
+	const UnsignedInt now = TheGameClient->getFrame();
+
+	if( hoverID != m_hoverTooltipDrawableID )
+	{
+		// hover target changed: restart the dwell timer
+		m_hoverTooltipDrawableID = hoverID;
+		m_hoverTooltipStartFrame = now;
+		return;
+	}
+	if( hoverID == INVALID_DRAWABLE_ID )
+		return;
+
+	Int delayMS = TheGlobalData->m_unitHoverTooltipDelayMS;
+	if( delayMS < 0 )
+		delayMS = 0;
+	const UnsignedInt delayFrames = (UnsignedInt)REAL_TO_INT_CEIL( delayMS * LOGICFRAMES_PER_MSEC_REAL );
+	if( now - m_hoverTooltipStartFrame < delayFrames )
+		return;
+
+	const Drawable *draw = TheGameClient->findDrawableByID( hoverID );
+	if( draw == nullptr )
+		return;
+	const Object *obj = draw->getObject();
+	if( obj == nullptr || obj->isEffectivelyDead() )
+		return;
+
+	const Player *viewer = rts::getObservedOrLocalPlayer();
+	if( viewer == nullptr )
+		return;
+
+	// no intel leaks: nothing for shrouded/fogged objects, nothing for stealthed enemies
+	const ObjectShroudStatus shroud = obj->getShroudedStatus( viewer->getPlayerIndex() );
+	if( shroud != OBJECTSHROUD_CLEAR && shroud != OBJECTSHROUD_PARTIAL_CLEAR )
+		return;
+	if( obj->testStatus( OBJECT_STATUS_STEALTHED )
+			&& !obj->testStatus( OBJECT_STATUS_DETECTED )
+			&& obj->getControllingPlayer() != viewer )
+		return;
+
+	const Bool isEnemy = (viewer->getRelationship( obj->getTeam() ) == ENEMIES);
+
+	// ---- gather the content lines (skip lines that do not apply) ----
+	UnicodeString lines[ MAX_HOVER_TOOLTIP_LINES ];
+	Int numLines = 0;
+
+	// display name (template display name, falling back to the internal template name)
+	UnicodeString name = obj->getTemplate()->getDisplayName();
+	if( name.isEmpty() )
+		name.translate( obj->getTemplate()->getName() );
+	lines[ numLines++ ] = name;
+
+	// health
+	const BodyModuleInterface *body = obj->getBodyModule();
+	if( body != nullptr && body->getMaxHealth() > 0.0f )
+	{
+		lines[ numLines ].format( L"HP %d/%d", REAL_TO_INT( body->getHealth() ), REAL_TO_INT( body->getMaxHealth() ) );
+		numLines++;
+	}
+
+	if( !isEnemy )
+	{
+		// veterancy rank (same localizable labels + fallbacks as the under-healthbar readout)
+		const VeterancyLevel level = obj->getVeterancyLevel();
+		if( level > LEVEL_REGULAR )
+		{
+			static const Char *const rankLabels[LEVEL_COUNT] =
+			{
+				"GUI:VeterancyRegular", "GUI:VeterancyVeteran", "GUI:VeterancyElite", "GUI:VeterancyHeroic",
+				"GUI:VeterancyHeroic2", "GUI:VeterancyHeroic3", "GUI:VeterancyHeroic4", "GUI:VeterancyHeroic5",
+				"GUI:VeterancyHeroic6"
+			};
+			static const WideChar *const rankFallbacks[LEVEL_COUNT] =
+			{
+				L"Regular", L"Veteran", L"Elite", L"Heroic",
+				L"Heroic 2", L"Heroic 3", L"Heroic 4", L"Heroic 5",
+				L"Heroic 6"
+			};
+			lines[ numLines++ ] = TheGameText->fetchOrSubstitute( rankLabels[ level ], rankFallbacks[ level ] );
+		}
+
+		// lifetime kills (per-unit kill counter)
+		const ExperienceTracker *xpTracker = obj->getExperienceTracker();
+		if( xpTracker != nullptr && xpTracker->getKillCount() > 0 )
+		{
+			lines[ numLines ].format( L"Kills: %d", xpTracker->getKillCount() );
+			numLines++;
+		}
+
+		// primary weapon (base template numbers, deliberately unmodified by bonuses)
+		const Weapon *weapon = obj->getCurrentWeapon();
+		if( weapon != nullptr && weapon->getTemplate() != nullptr )
+		{
+			WeaponBonus baseBonus;	// ctor clears to 1.0 multipliers = base values
+			const Real damage = weapon->getTemplate()->getPrimaryDamage( baseBonus );
+			const Real range = weapon->getTemplate()->getUnmodifiedAttackRange();
+			if( damage > 0.0f )
+			{
+				lines[ numLines ].format( L"Dmg %d  Rng %d (base)", REAL_TO_INT( damage ), REAL_TO_INT( range ) );
+				numLines++;
+			}
+		}
+
+		// build cost
+		const Int cost = obj->getTemplate()->calcCostToBuild( obj->getControllingPlayer() );
+		if( cost > 0 )
+		{
+			lines[ numLines ].format( L"Cost $%d", cost );
+			numLines++;
+		}
+	}
+
+	if( numLines == 0 )
+		return;
+
+	// ---- set the display strings and measure the panel ----
+	Int panelWidth = 0;
+	Int panelHeight = 0;
+	Int i;
+	for( i = 0; i < numLines; ++i )
+	{
+		if( m_hoverTooltipStrings[ i ] == nullptr )
+		{
+			m_hoverTooltipStrings[ i ] = TheDisplayStringManager->newDisplayString();
+			m_hoverTooltipStrings[ i ]->setFont( TheFontLibrary->getFont( m_namedTimerNormalFont,
+				TheGlobalLanguageData->adjustFontSize( m_namedTimerNormalPointSize ), m_namedTimerNormalBold ) );
+		}
+		m_hoverTooltipStrings[ i ]->setText( lines[ i ] );
+		Int lineWidth = 0, lineHeight = 0;
+		m_hoverTooltipStrings[ i ]->getSize( &lineWidth, &lineHeight );
+		if( lineWidth > panelWidth )
+			panelWidth = lineWidth;
+		panelHeight += lineHeight;
+	}
+
+	// ---- position near the cursor, clamped on screen ----
+	const MouseIO *mouseIO = TheMouse->getMouseStatus();
+	if( mouseIO == nullptr )
+		return;
+	const Int pad = 4;
+	Int x = mouseIO->pos.x + 18;
+	Int y = mouseIO->pos.y + 18;
+	const Int screenWidth = (Int)TheDisplay->getWidth();
+	const Int screenHeight = (Int)TheDisplay->getHeight();
+	if( x + panelWidth + 2 * pad > screenWidth )
+		x = screenWidth - panelWidth - 2 * pad;
+	if( y + panelHeight + 2 * pad > screenHeight )
+		y = mouseIO->pos.y - panelHeight - 2 * pad - 4;	// flip above the cursor
+	if( x < 0 ) x = 0;
+	if( y < 0 ) y = 0;
+
+	// ---- draw: dim filled panel, thin border, then the text lines ----
+	TheDisplay->drawFillRect( x, y, panelWidth + 2 * pad, panelHeight + 2 * pad, GameMakeColor( 0, 0, 0, 170 ) );
+	TheDisplay->drawOpenRect( x, y, panelWidth + 2 * pad, panelHeight + 2 * pad, 1.0f, GameMakeColor( 255, 255, 255, 90 ) );
+
+	const Color textColor = GameMakeColor( 255, 255, 255, 255 );
+	const Color dropColor = GameMakeColor( 0, 0, 0, 255 );
+	Int lineY = y + pad;
+	for( i = 0; i < numLines; ++i )
+	{
+		m_hoverTooltipStrings[ i ]->draw( x + pad, lineY, textColor, dropColor );
+		Int lineHeight = 0;
+		m_hoverTooltipStrings[ i ]->getSize( nullptr, &lineHeight );
+		lineY += lineHeight;
 	}
 }
 

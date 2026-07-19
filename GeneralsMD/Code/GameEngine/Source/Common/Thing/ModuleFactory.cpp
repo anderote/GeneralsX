@@ -201,6 +201,7 @@
 #include "GameLogic/Module/LocomotorSetUpgrade.h"
 #include "GameLogic/Module/ObjectCreationUpgrade.h"
 #include "GameLogic/Module/MapRevealUpgrade.h"
+#include "GameLogic/Module/ContainCapacityUpgrade.h"
 #include "GameLogic/Module/RadarUpgrade.h"
 #include "GameLogic/Module/PowerPlantUpgrade.h"
 #include "GameLogic/Module/ReplaceObjectUpgrade.h"
@@ -485,6 +486,8 @@ void ModuleFactory::init()
 	addModule( StealthUpgrade );
 	// GeneralsX @feature permanent full-map reveal on upgrade (see MapRevealUpgrade.h)
 	addModule( MapRevealUpgrade );
+	// GeneralsX @feature extra passenger slots on upgrade (see ContainCapacityUpgrade.h)
+	addModule( ContainCapacityUpgrade );
 	addModule( RadarUpgrade );
 	addModule( PowerPlantUpgrade );
 	addModule( LocomotorSetUpgrade );

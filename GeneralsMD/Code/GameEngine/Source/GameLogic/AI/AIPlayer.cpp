@@ -802,6 +802,8 @@ void AIPlayer::processBaseBuilding()
 
 						m_readyToBuildStructure = false;
 						m_structureTimer = TheAI->getAiData()->m_structureSeconds*static_cast<float>(LOGICFRAMES_PER_SECOND);
+						// GeneralsX @feature AIHardProductionDelayScale: hard AI builds structures more often
+						m_structureTimer = REAL_TO_INT_CEIL( m_structureTimer * getHardProductionDelayScale() );
 						if (m_player->getMoney()->countMoney() < TheAI->getAiData()->m_resourcesPoor) {
 							m_structureTimer = m_structureTimer/TheAI->getAiData()->m_structuresPoorMod;
 						}	else if (m_player->getMoney()->countMoney() > TheAI->getAiData()->m_resourcesWealthy) {
@@ -838,6 +840,8 @@ void AIPlayer::processBaseBuilding()
 
 								m_readyToBuildStructure = false;
 								m_structureTimer = TheAI->getAiData()->m_structureSeconds*LOGICFRAMES_PER_SECOND;
+								// GeneralsX @feature AIHardProductionDelayScale: hard AI builds structures more often
+								m_structureTimer = REAL_TO_INT_CEIL( m_structureTimer * getHardProductionDelayScale() );
 								if (m_player->getMoney()->countMoney() < TheAI->getAiData()->m_resourcesPoor) {
 									m_structureTimer = m_structureTimer/TheAI->getAiData()->m_structuresPoorMod;
 								}	else if (m_player->getMoney()->countMoney() > TheAI->getAiData()->m_resourcesWealthy) {
@@ -1464,6 +1468,66 @@ Object *AIPlayer::findFactory(const ThingTemplate *thing, Bool busyOK)
 // ------------------------------------------------------------------------------------------------
 /** Return true if team can be considered for building */
 // ------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
+// GeneralsX @feature Hard-AI aggression scales.  Gated to computer players at HARD difficulty;
+// everyone else gets exactly 1.0.  Clamped to [0.25, 4.0] so degenerate INI values cannot stall
+// or explode the AI.  Consumed (not parsed) per player: team templates stay shared/unmodified.
+//-------------------------------------------------------------------------------------------------
+static Real clampHardAIScale( Real scale )
+{
+	if( scale < 0.25f )
+		return 0.25f;
+	if( scale > 4.0f )
+		return 4.0f;
+	return scale;
+}
+
+Real AIPlayer::getHardTeamSizeScale() const
+{
+	if( TheGlobalData == nullptr || m_player == nullptr )
+		return 1.0f;
+	if( m_player->getPlayerType() != PLAYER_COMPUTER || getAIDifficulty() != DIFFICULTY_HARD )
+		return 1.0f;
+	return clampHardAIScale( TheGlobalData->m_aiHardTeamSizeScale );
+}
+
+Real AIPlayer::getHardProductionDelayScale() const
+{
+	if( TheGlobalData == nullptr || m_player == nullptr )
+		return 1.0f;
+	if( m_player->getPlayerType() != PLAYER_COMPUTER || getAIDifficulty() != DIFFICULTY_HARD )
+		return 1.0f;
+	return clampHardAIScale( TheGlobalData->m_aiHardProductionDelayScale );
+}
+
+//-------------------------------------------------------------------------------------------------
+// ceil for max counts so any scale > 1.0 always adds at least the proportional amount
+//-------------------------------------------------------------------------------------------------
+Int AIPlayer::scaleTeamMaxUnits( Int maxUnits ) const
+{
+	const Real scale = getHardTeamSizeScale();
+	if( scale == 1.0f || maxUnits <= 0 )
+		return maxUnits;
+	Int scaled = REAL_TO_INT_CEIL( maxUnits * scale );
+	if( scaled < 1 )
+		scaled = 1;
+	return scaled;
+}
+
+//-------------------------------------------------------------------------------------------------
+// floor for min counts, but never below the authored minimum (shrinking scales only trim max)
+//-------------------------------------------------------------------------------------------------
+Int AIPlayer::scaleTeamMinUnits( Int minUnits ) const
+{
+	const Real scale = getHardTeamSizeScale();
+	if( scale == 1.0f || minUnits <= 0 )
+		return minUnits;
+	Int scaled = REAL_TO_INT_FLOOR( minUnits * scale );
+	if( scaled < minUnits )
+		scaled = minUnits;
+	return scaled;
+}
+
 Bool AIPlayer::isPossibleToBuildTeam( TeamPrototype *proto, Bool requireIdleFactory, Bool &notEnoughMoney)
 {
 	/* Make sure we have at least one idle factory, and factories for all unit types. */
@@ -1484,7 +1548,8 @@ Bool AIPlayer::isPossibleToBuildTeam( TeamPrototype *proto, Bool requireIdleFact
 				// Found an idle factory.
 				anyIdle = true;
 			}
-			cost += thingCost * ((unitInfo[i].maxUnits+unitInfo[i].minUnits)/2.0f);
+			// GeneralsX @feature AIHardTeamSizeScale: budget for the scaled team size
+			cost += thingCost * ((scaleTeamMaxUnits(unitInfo[i].maxUnits)+scaleTeamMinUnits(unitInfo[i].minUnits))/2.0f);
 		}
 	}
 	cost *= TheAI->getAiData()->m_teamResourcesToBuild;
@@ -1581,12 +1646,14 @@ Bool AIPlayer::selectTeamToReinforce( Int minPriority )
 				const TCreateUnitsInfo *unitInfo = &team->getPrototype()->getTemplateInfo()->m_unitsInfo[0];
 				for( int i=0; i<team->getPrototype()->getTemplateInfo()->m_numUnitsInfo; i++ )
 				{
+					// GeneralsX @feature AIHardTeamSizeScale: reinforce up to the scaled maximum
+					Int scaledMaxUnits = scaleTeamMaxUnits(unitInfo[i].maxUnits);
 					if (unitInfo[i].maxUnits < 1) continue;
 					const ThingTemplate *thing = TheThingFactory->findTemplate( unitInfo[i].unitThingName );
 					if (thing==nullptr) continue;
 					Int count=0;
 					team->countObjectsByThingTemplate(1, &thing, false, &count);
-					if (count < unitInfo[i].maxUnits)
+					if (count < scaledMaxUnits)
 					{
 						// See if there is a factory available.
 						if (nullptr != findFactory(thing, false))
@@ -1740,6 +1807,8 @@ Bool AIPlayer::selectTeamToBuild()
 		buildSpecificAITeam(teamProto, false);
 		m_readyToBuildTeam = false;
 		m_teamTimer = m_teamSeconds*LOGICFRAMES_PER_SECOND;
+		// GeneralsX @feature AIHardProductionDelayScale: hard AI builds teams more often
+		m_teamTimer = REAL_TO_INT_CEIL( m_teamTimer * getHardProductionDelayScale() );
 		if (m_player->getMoney()->countMoney() < TheAI->getAiData()->m_resourcesPoor) {
 			m_teamTimer = m_teamTimer/TheAI->getAiData()->m_teamPoorMod;
 		}	else if (m_player->getMoney()->countMoney() > TheAI->getAiData()->m_resourcesWealthy) {
@@ -2486,7 +2555,11 @@ void AIPlayer::buildSpecificAITeam( TeamPrototype *teamProto, Bool priorityBuild
 			const ThingTemplate *thing = TheThingFactory->findTemplate( unitInfo[i].unitThingName );
 			if (thing)
 			{
-				int count = unitInfo[i].maxUnits-unitInfo[i].minUnits;
+				// GeneralsX @feature AIHardTeamSizeScale: scaled optional headroom (never negative)
+				int scaledMin = scaleTeamMinUnits(unitInfo[i].minUnits);
+				int scaledMax = scaleTeamMaxUnits(unitInfo[i].maxUnits);
+				if (scaledMax < scaledMin) scaledMax = scaledMin;
+				int count = scaledMax-scaledMin;
 				if (count>0) {
 					WorkOrder *order = newInstance(WorkOrder);
 					order->m_thing = thing;
@@ -2504,7 +2577,8 @@ void AIPlayer::buildSpecificAITeam( TeamPrototype *teamProto, Bool priorityBuild
 			const ThingTemplate *thing = TheThingFactory->findTemplate( unitInfo[i].unitThingName );
 			if (thing)
 			{
-				int count = unitInfo[i].minUnits;
+				// GeneralsX @feature AIHardTeamSizeScale: scaled required core of the team
+				int count = scaleTeamMinUnits(unitInfo[i].minUnits);
 				WorkOrder *order = newInstance(WorkOrder);
 				order->m_thing = thing;
 				order->m_factoryID = INVALID_ID;
@@ -2599,7 +2673,8 @@ void AIPlayer::recruitSpecificAITeam(TeamPrototype *teamProto, Real recruitRadiu
 			const ThingTemplate *thing = TheThingFactory->findTemplate( unitInfo[i].unitThingName );
 			if (thing)
 			{
-				int count = unitInfo[i].maxUnits;
+				// GeneralsX @feature AIHardTeamSizeScale: recruit up to the scaled maximum
+				int count = scaleTeamMaxUnits(unitInfo[i].maxUnits);
 				while (count>0) {
 					Object *unit = theTeam->tryToRecruit(thing, &teamProto->getTemplateInfo()->m_homeLocation, recruitRadius);
 					if (unit)

@@ -390,6 +390,15 @@ public:
 	// Frame-count driven (deterministic sim side); 0 amount disables the feature entirely.
 	Int m_aiCashInjectionHard;												///< stipend amount (AICashInjectionHard, default 0 = off)
 	Real m_aiCashInjectionHardSeconds;								///< stipend period in seconds (AICashInjectionHardSeconds, default 60)
+
+	// GeneralsX @feature Hard-AI aggression scales.  Both consumed per-player for
+	// PLAYER_COMPUTER at DIFFICULTY_HARD only, clamped to [0.25, 4.0] on read.
+	Real m_aiHardTeamSizeScale;												///< scales AI team template unit counts (AIHardTeamSizeScale, default 1.0)
+	Real m_aiHardProductionDelayScale;								///< scales AI team/structure build delays (AIHardProductionDelayScale, default 1.0; 0.5 = twice the tempo)
+
+	// GeneralsX @feature in-world unit hover tooltips (client display only).
+	Bool m_showUnitHoverTooltips;											///< gate (ShowUnitHoverTooltips, default No)
+	Int m_unitHoverTooltipDelayMS;										///< dwell before the tooltip shows (UnitHoverTooltipDelayMS, default 400)
 	// GeneralsX @feature Extended veterancy: XP-threshold extrapolation multiplier for the
 	// FINAL rank only (LEVEL_LAST / HEROIC6).  Ranks with missing ExperienceRequired data
 	// extrapolate at 1.75x the previous increment; the last step uses this factor instead,
