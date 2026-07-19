@@ -381,6 +381,10 @@ public:
 	Bool m_loadScreenRender;						///< flag to disallow rendering of almost everything during a loadscreen
 
 	Real m_keyboardScrollFactor;			///< Factor applied to game scrolling speed via keyboard scrolling
+	// GeneralsX @feature WASD camera panning (client input only): W/A/S/D pan the camera
+	// exactly like the arrow keys.  Bare keypresses only; ctrl/alt/shift combos keep their
+	// normal bindings.  Shadows bare-letter command hotkeys on these keys while enabled.
+	Bool m_wasdCameraPan;															///< gate (WASDCameraPan, default No)
 	Real m_keyboardDefaultScrollFactor;			///< Factor applied to game scrolling speed via keyboard scrolling
 	Bool m_drawScrollAnchor;					///< Set that the scroll anchor should be enabled
 	Bool m_moveScrollAnchor;					///< set that the scroll anchor should move

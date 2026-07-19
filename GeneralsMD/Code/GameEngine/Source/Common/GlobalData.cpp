@@ -470,6 +470,8 @@ GlobalData* GlobalData::m_theOriginal = nullptr;
 	// GeneralsX @feature in-world unit hover tooltips (client display only).
 	{ "ShowUnitHoverTooltips",								INI::parseBool,						nullptr,	offsetof( GlobalData, m_showUnitHoverTooltips ) },
 	{ "UnitHoverTooltipDelayMS",							INI::parseInt,						nullptr,	offsetof( GlobalData, m_unitHoverTooltipDelayMS ) },
+	// GeneralsX @feature WASD camera panning (client input only).
+	{ "WASDCameraPan",								INI::parseBool,				nullptr,			offsetof( GlobalData, m_wasdCameraPan ) },
 
 	{ "HumanSoloPlayerHealthBonus_Easy",					INI::parsePercentToReal,			nullptr,			offsetof( GlobalData, m_soloPlayerHealthBonusForDifficulty[PLAYER_HUMAN][DIFFICULTY_EASY] ) },
 	{ "HumanSoloPlayerHealthBonus_Normal",				INI::parsePercentToReal,			nullptr,			offsetof( GlobalData, m_soloPlayerHealthBonusForDifficulty[PLAYER_HUMAN][DIFFICULTY_NORMAL] ) },
@@ -1110,6 +1112,8 @@ GlobalData::GlobalData()
 	// GeneralsX @feature unit hover tooltip defaults: off, 400 ms dwell.
 	m_showUnitHoverTooltips = FALSE;
 	m_unitHoverTooltipDelayMS = 400;
+
+	m_wasdCameraPan = FALSE;	// GeneralsX @feature WASD camera panning default off
 
 	for (i = 0; i < PLAYERTYPE_COUNT; ++i)
 	{

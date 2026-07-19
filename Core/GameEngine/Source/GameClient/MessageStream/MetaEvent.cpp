@@ -29,6 +29,7 @@
 
 // INCLUDES ///////////////////////////////////////////////////////////////////////////////////////
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
+#include "Common/GlobalData.h"
 
 #include "Common/GameUtility.h"
 #include "Common/INI.h"
@@ -551,6 +552,17 @@ void MetaEventTranslator::onKeyEvent(const GameMessage *msg, GameMessageDisposit
 	const Int systemKeyState = msg->getArgument(1)->integer;
 
 	const MappableKeyType key = (MappableKeyType)systemKey;
+
+	// GeneralsX @feature WASDCameraPan: bare W/A/S/D belong to camera panning, handled by the
+	// LookAtTranslator downstream (priority 60).  Skip meta mapping here so the pan keys are
+	// never converted/eaten (a consumed key-up would leave the camera stuck scrolling).
+	// Modified combos (ctrl/alt/shift) keep their meta bindings.
+	if( TheGlobalData != nullptr && TheGlobalData->m_wasdCameraPan
+			&& (systemKey == KEY_W || systemKey == KEY_A || systemKey == KEY_S || systemKey == KEY_D)
+			&& (systemKeyState & (KEY_STATE_CONTROL | KEY_STATE_SHIFT | KEY_STATE_ALT)) == 0 )
+	{
+		return;
+	}
 
 	// for our purposes here, we don't care to distinguish between right and left keys,
 	// so just fudge a little to simplify things.

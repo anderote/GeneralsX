@@ -399,6 +399,11 @@ public:
 	// GeneralsX @feature in-world unit hover tooltips (client display only).
 	Bool m_showUnitHoverTooltips;											///< gate (ShowUnitHoverTooltips, default No)
 	Int m_unitHoverTooltipDelayMS;										///< dwell before the tooltip shows (UnitHoverTooltipDelayMS, default 400)
+
+	// GeneralsX @feature WASD camera panning (client input only): W/A/S/D pan the camera
+	// exactly like the arrow keys.  Bare keypresses only; ctrl/alt/shift combos keep their
+	// normal bindings.  Shadows bare-letter command hotkeys on these keys while enabled.
+	Bool m_wasdCameraPan;															///< gate (WASDCameraPan, default No)
 	// GeneralsX @feature Extended veterancy: XP-threshold extrapolation multiplier for the
 	// FINAL rank only (LEVEL_LAST / HEROIC6).  Ranks with missing ExperienceRequired data
 	// extrapolate at 1.75x the previous increment; the last step uses this factor instead,

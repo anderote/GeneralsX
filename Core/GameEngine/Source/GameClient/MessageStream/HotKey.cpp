@@ -47,6 +47,7 @@
 // SYSTEM INCLUDES ////////////////////////////////////////////////////////////
 //-----------------------------------------------------------------------------
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
+#include "Common/GlobalData.h"
 //-----------------------------------------------------------------------------
 // USER INCLUDES //////////////////////////////////////////////////////////////
 //-----------------------------------------------------------------------------
@@ -98,6 +99,18 @@ GameMessageDisposition HotKeyTranslator::translateGameMessage(const GameMessage 
 		}
 		if(newModState != 0)
 			return disp;
+
+		// GeneralsX @feature WASDCameraPan: bare W/A/S/D are camera pan keys.  Command-button
+		// mnemonic hotkeys on these letters are intentionally shadowed while the feature is on;
+		// returning KEEP (without executing) also lets the key-up reach the LookAtTranslator so
+		// panning stops cleanly.
+		Int rawPanKey = msg->getArgument(0)->integer;
+		if( TheGlobalData != nullptr && TheGlobalData->m_wasdCameraPan
+				&& (rawPanKey == KEY_W || rawPanKey == KEY_A || rawPanKey == KEY_S || rawPanKey == KEY_D) )
+		{
+			return disp;
+		}
+
 		WideChar key = TheKeyboard->getPrintableKey((KeyDefType)msg->getArgument(0)->integer, 0);
 		UnicodeString uKey;
 		uKey.concat(key);

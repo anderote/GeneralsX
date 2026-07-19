@@ -233,6 +233,40 @@ GameMessageDisposition LookAtTranslator::translateGameMessage(const GameMessage 
 				break;
 			}
 
+			// GeneralsX @feature WASDCameraPan: W/A/S/D pan exactly like the arrow keys above.
+			// Only BARE presses start panning (ctrl/alt/shift combos keep their bindings), but a
+			// key-UP always clears its direction (even if a modifier was pressed meanwhile) so
+			// the camera can never get stuck scrolling.  Text entry is already safe: an edit box
+			// with keyboard focus consumes the key in WindowTranslator (priority 10) before it
+			// ever reaches this translator (priority 60), same as the arrow keys.
+			if( TheGlobalData->m_wasdCameraPan )
+			{
+				const Int fullKeyState = msg->getArgument( 1 )->integer;
+				const Bool bareKey = (fullKeyState & (KEY_STATE_CONTROL | KEY_STATE_SHIFT | KEY_STATE_ALT)) == 0;
+				Int wasdDir = -1;
+				switch (key)
+				{
+				case KEY_W:	wasdDir = DIR_UP;			break;
+				case KEY_S:	wasdDir = DIR_DOWN;		break;
+				case KEY_A:	wasdDir = DIR_LEFT;		break;
+				case KEY_D:	wasdDir = DIR_RIGHT;	break;
+				}
+				if( wasdDir >= 0 )
+				{
+					if( isPressed && bareKey )
+					{
+						scrollDir[wasdDir] = true;
+						disp = DESTROY_MESSAGE;	// pan owns the bare keypress
+					}
+					else if( !isPressed && scrollDir[wasdDir] )
+					{
+						scrollDir[wasdDir] = false;
+						if( bareKey )
+							disp = DESTROY_MESSAGE;
+					}
+				}
+			}
+
 			if (TheInGameUI->isSelecting() || (m_isScrolling && m_scrollType != SCROLL_KEY))
 				break;
 
