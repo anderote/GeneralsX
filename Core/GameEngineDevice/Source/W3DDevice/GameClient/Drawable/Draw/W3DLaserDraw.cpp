@@ -263,6 +263,7 @@ void W3DLaserDraw::doDrawModule(const Matrix3D* transformMtx)
 		return;
 	}
 
+
 	//If the update has moved the laser, it requires a reset of the laser.
 	if (update->isDirty() || m_selfDirty)
 	{
@@ -415,6 +416,12 @@ void W3DLaserDraw::doDrawModule(const Matrix3D* transformMtx)
 
 				m_line3D[ index ]->Set_Width( width );
 				m_line3D[ index ]->Set_Points( 2, &laserPoints[0] );
+
+				// GeneralsX @bugfix: the constructor hides each line "until the first
+				// time we come to draw it" -- this is that first time, and nothing
+				// else ever un-hides them, leaving every laser permanently invisible.
+				if( !m_line3D[ index ]->Is_Really_Visible() )
+					m_line3D[ index ]->Set_Visible( 1 );
 			}
 		}
 	}
