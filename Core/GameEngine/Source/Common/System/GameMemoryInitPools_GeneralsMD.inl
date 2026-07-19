@@ -202,6 +202,8 @@ static PoolSizeRec PoolSizes[] =
 	{ "QueueProductionExitUpdate", 32, 32 },
 	{ "RadarUpdate", 16, 16 },
 	{ "RadarUpgrade", 16, 16 },
+	{ "MapRevealUpgrade", 16, 16 },
+	{ "ContainCapacityUpgrade", 32, 32 },
 	{ "AnimationSteeringUpdate", 1024, 32 },
 	{ "SupplyWarehouseCripplingBehavior", 16, 16 },
 	{ "CostModifierUpgrade", 32, 32 },
