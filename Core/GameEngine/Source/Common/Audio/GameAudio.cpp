@@ -302,8 +302,8 @@ void AudioManager::update()
 	//of making sure we only go a certain percentage towards the camera or the desired height, whichever occurs first.
 	Coord3D cameraPos = TheTacticalView->get3DCameraPosition();
 	Coord3D groundToCameraVector;
-	groundToCameraVector.set( &cameraPos );
-	groundToCameraVector.sub( &cameraPivot );
+	groundToCameraVector.set( cameraPos );
+	groundToCameraVector.sub( cameraPivot );
 	Real bestScaleFactor;
 
 	if( cameraPos.z <= desiredHeightAbs || groundToCameraVector.z <= 0.0f )
@@ -325,8 +325,8 @@ void AudioManager::update()
 
 	//Set the microphone to be the ground position adjusted for terrain plus the vector we just calculated.
 	Coord3D microphonePos;
-	microphonePos.set( &cameraPivot );
-	microphonePos.add( &groundToCameraVector );
+	microphonePos.set( cameraPivot );
+	microphonePos.add( groundToCameraVector );
 
 	//Viola! A properly placed microphone.
 	setListenerPosition( &microphonePos, &lookTo );
@@ -345,7 +345,7 @@ void AudioManager::update()
 	{
 		//How far away is the camera from the microphone?
 		Coord3D vector = cameraPos;
-		vector.sub( &microphonePos );
+		vector.sub( microphonePos );
 		Real dist = vector.length();
 
 		if( dist < minDist )
@@ -947,28 +947,25 @@ Real AudioManager::getAudioLengthMS( const AudioEventRTS *event )
 //-------------------------------------------------------------------------------------------------
 Bool AudioManager::isMusicAlreadyLoaded() const
 {
-	const AudioEventInfo *musicToLoad = nullptr;
+	// GeneralsX @bugfix felipebraz 10/07/2026 Fix game crash on Linux when some music files are missing by checking until a valid one is found
 	AudioEventInfoHash::const_iterator it;
 	for (it = m_allAudioEventInfo.begin(); it != m_allAudioEventInfo.end(); ++it) {
 		if (it->second) {
 			const AudioEventInfo *aet = it->second;
 			if (aet->m_soundType == AT_Music) {
-				musicToLoad = aet;
+				AudioEventRTS aud;
+				aud.setAudioEventInfo(aet);
+				aud.generateFilename();
+				
+				AsciiString astr = aud.getFilename();
+				if (TheFileSystem->doesFileExist(astr.str())) {
+					return TRUE;
+				}
 			}
 		}
 	}
-
-	if (!musicToLoad) {
-		return FALSE;
-	}
-
-	AudioEventRTS aud;
-	aud.setAudioEventInfo(musicToLoad);
-	aud.generateFilename();
-
-	AsciiString astr = aud.getFilename();
-
-	return (TheFileSystem->doesFileExist(astr.str()));
+	
+	return FALSE;
 }
 
 //-------------------------------------------------------------------------------------------------

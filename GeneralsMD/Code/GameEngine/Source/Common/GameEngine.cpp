@@ -918,9 +918,9 @@ void GameEngine::resetSubsystems()
 }
 
 /// -----------------------------------------------------------------------------------------------
-Bool GameEngine::canUpdateGameLogic()
+Bool GameEngine::canUpdateGameLogic(UnsignedInt logicTimeQueryFlags)
 {
-	// Must be first.
+	// This updates the paused game status of the game logic.
 	TheGameLogic->preUpdate();
 
 	TheFramePacer->setTimeFrozen(isTimeFrozen());
@@ -932,7 +932,7 @@ Bool GameEngine::canUpdateGameLogic()
 	}
 	else
 	{
-		return canUpdateRegularGameLogic();
+		return canUpdateRegularGameLogic(logicTimeQueryFlags);
 	}
 }
 
@@ -953,10 +953,16 @@ Bool GameEngine::canUpdateNetworkGameLogic()
 }
 
 /// -----------------------------------------------------------------------------------------------
-Bool GameEngine::canUpdateRegularGameLogic()
+Bool GameEngine::canUpdateRegularGameLogic(UnsignedInt logicTimeQueryFlags)
 {
+	const Int logicTimeScaleFps = TheFramePacer->getActualLogicTimeScaleFps(logicTimeQueryFlags);
+
+	if (logicTimeScaleFps <= 0)
+	{
+		return false;
+	}
+
 	const Bool enabled = TheFramePacer->isLogicTimeScaleEnabled();
-	const Int logicTimeScaleFps = TheFramePacer->getLogicTimeScaleFps();
 	const Int maxRenderFps = TheFramePacer->getFramesPerSecondLimit();
 
 #if defined(_ALLOW_DEBUG_CHEATS_IN_RELEASE)
@@ -1024,24 +1030,18 @@ void GameEngine::update()
 			}
 		}
 
+		// TheSuperHackers @info Ignores frozen time because the script engine needs updating in the logic update regardless.
 		g_crashDiagUpdateStage = "GameEngine: canUpdateGameLogic (GameLogic::preUpdate)";
-		const Bool canUpdate = canUpdateGameLogic();
-		const Bool canUpdateLogic = canUpdate && !TheFramePacer->isGameHalted() && !TheFramePacer->isTimeFrozen();
-		const Bool canUpdateScript = canUpdate && !TheFramePacer->isGameHalted();
-
-		if (canUpdateLogic)
+		if (canUpdateGameLogic(FramePacer::IgnoreFrozenTime))
 		{
-			g_crashDiagUpdateStage = "GameEngine: TheGameClient->step";
-			TheGameClient->step();
 			g_crashDiagUpdateStage = "GameEngine: TheGameLogic->update";
 			TheGameLogic->UPDATE();
-		}
-		else if (canUpdateScript)
-		{
-			// TheSuperHackers @info Still update the Script Engine to allow
-			// for scripted camera movements while the time is frozen.
-			g_crashDiagUpdateStage = "GameEngine: TheScriptEngine->update (time frozen)";
-			TheScriptEngine->UPDATE();
+
+			if (!TheFramePacer->isTimeFrozen())
+			{
+				g_crashDiagUpdateStage = "GameEngine: TheGameClient->step";
+				TheGameClient->step();
+			}
 		}
 
 		g_crashDiagUpdateStage = "GameEngine: end of update";

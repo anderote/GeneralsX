@@ -36,6 +36,18 @@ GeneralsX is a cross-platform port of Command & Conquer: Generals Zero Hour for 
 9. **Update worklog** – Update `docs/WORKLOG/YYYY-MM-DIARY.md` before committing (see [.github/instructions/docs.instructions.md](.github/instructions/docs.instructions.md) for details)
 10. **Reference repos** – Study patterns, don't copy-paste
 11. **Backport to Generals** – Bugfixes and improvements must be backported to the Generals base game.
+12. **Deterministic Math** – The native math functions were replaced by deterministic multi-platform WWMath equivalents to maintain determinism. This pattern must be preserved. When syncing upstream, replace these functions:
+    - `sqrt` / `sqrtf` -> `WWMath::SqrtOrigin` / `WWMath::SqrtfOrigin` or `WWMath::Sqrt`
+    - `sin` / `sinf` -> `WWMath::SinTrig` or `WWMath::Sin`
+    - `cos` / `cosf` -> `WWMath::CosTrig` or `WWMath::Cos`
+    - `tan` / `tanf` -> `WWMath::TanTrig`
+    - `acos` / `acosf` -> `WWMath::ACosTrig` or `WWMath::Acos`
+    - `asin` / `asinf` -> `WWMath::ASinTrig` or `WWMath::Asin`
+    - `atan` / `atanf` -> `WWMath::Atan`
+    - `atan2` / `atan2f` -> `WWMath::Atan2Origin` or `WWMath::Atan2`
+    - `ceil` / `ceilf` -> `WWMath::Ceil`
+    - `floor` / `floorf` -> `WWMath::Floor`
+    - `pow` -> `WWMath::PowOrigin`
 
 ## Reference Repositories
 - **fighter19-dxvk-port** – Primary graphics/platform reference (DXVK + SDL3 on Linux)
@@ -170,6 +182,16 @@ git merge thesuperhackers/main
 - **Attribution**: Add upstream PR references with author and GitHub URL
 - **English only**: All code, comments, documentation
 - **No lazy code**: No empty stubs, empty catch blocks, or commented-out code
+- **Console Debug Logging**: For diagnostic/troubleshooting logs that must remain visible in release/non-debug builds (since `DEBUG_LOG` is disabled and compiled out in release builds), use `fprintf(stderr, ...)` paired with `fflush(stderr)` instead of `DEBUG_LOG` to output directly to the console.
+  - ✗ *Wrong (compiled out in release builds)*:
+    ```cpp
+    DEBUG_LOG(("LanLobbyMenuInit - SetLocalIP ok %d.%d.%d.%d", PRINTF_IP_AS_4_INTS(IP)));
+    ```
+  - ✓ *Right (will print to console in release/testing environments)*:
+    ```cpp
+    fprintf(stderr, "[LAN86] LanLobbyMenuInit SetLocalIP ok %d.%d.%d.%d\n", PRINTF_IP_AS_4_INTS(IP));
+    fflush(stderr);
+    ```
 
 ## GitHub PR/Issue Formatting
 - Use `--body-file` with real Markdown file instead of `--body`
