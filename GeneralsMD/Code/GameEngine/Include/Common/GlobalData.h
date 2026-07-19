@@ -409,6 +409,12 @@ public:
 	// game, pre-populate the lobby as 2v6 -- host + one Open slot on team 1, six Hard AIs on
 	// team 2.  Initial state only; the host can still change everything by hand.
 	Bool m_defaultLANLobby2v6;												///< gate (DefaultLANLobby2v6, default No)
+
+	// GeneralsX @feature Team-pooled money: all mutually-allied players share ONE money pool
+	// (the anchor teammate's Money object -- lowest player index in the mutual-ally group,
+	// frozen at game start).  Deterministic sim side; every consumer flows through
+	// Player::getMoney().
+	Bool m_teamPooledMoney;														///< gate (TeamPooledMoney, default No)
 	// GeneralsX @feature Extended veterancy: XP-threshold extrapolation multiplier for the
 	// FINAL rank only (LEVEL_LAST / HEROIC6).  Ranks with missing ExperienceRequired data
 	// extrapolate at 1.75x the previous increment; the last step uses this factor instead,

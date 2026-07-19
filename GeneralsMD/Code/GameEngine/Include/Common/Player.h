@@ -235,8 +235,16 @@ public:
 	Handicap *getHandicap() { return &m_handicap; }
 
 	/// return the Player's Money sub-object
-	Money *getMoney() { return &m_money; }
-	const Money *getMoney() const { return &m_money; }
+	// GeneralsX @feature Team-pooled money: when TeamPooledMoney is on, these return the
+	// ANCHOR teammate's Money object (lowest player index in the frozen mutual-ally group),
+	// so every deposit/withdraw/display naturally hits the shared team pool.  Defined
+	// out-of-line in Player.cpp; before the anchor is frozen they behave exactly as vanilla.
+	Money *getMoney();
+	const Money *getMoney() const;
+
+	// GeneralsX @feature Team-pooled money plumbing (called by PlayerList / load path)
+	void computeMoneyPoolAnchor();					///< freeze the anchor from current mutual alliances
+	void friend_foldMoneyIntoPoolAnchor();	///< move this player's starting credits into the anchor pool
 
 	UnsignedInt getSupplyBoxValue();///< Many things can affect the value of a crate, but at heart it is a GlobalData ratio.
 
@@ -758,6 +766,7 @@ private:
 	AsciiString									m_baseSide;											///< the base side, GLA, USA, or China
 	PlayerType									m_playerType;									///< human/computer control
 	Money												m_money;											///< Player's current wealth
+	Int													m_moneyPoolAnchorNdx;					///< GeneralsX @feature team money pool anchor player index (-1 = not yet frozen)
 	Upgrade*										m_upgradeList;								///< list of all upgrades this player has
 	Int													m_radarCount;									///< # of facilities that have a radar under the players control
 	Int													m_disableProofRadarCount;			///< # of disable proof radars.  A disable proof one will be in both refcounts

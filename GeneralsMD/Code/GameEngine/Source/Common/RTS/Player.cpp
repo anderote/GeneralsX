@@ -355,6 +355,7 @@ void Player::init(const PlayerTemplate* pt)
 	DEBUG_ASSERTCRASH(m_playerTeamPrototypes.empty(), ("Player::m_playerTeamPrototypes is not empty at game start!"));
 	m_skillPointsModifier = 1.0f;
 	m_attackedFrame = 0;
+	m_moneyPoolAnchorNdx = -1;	// GeneralsX @feature team-pooled money: anchor not yet frozen
 
 	m_isPreorder = FALSE;
 	m_isPlayerDead = FALSE;
@@ -779,6 +780,96 @@ void Player::deletePlayerAI()
 //=============================================================================
 // This is called from PlayerList->newGame()
 //
+//-------------------------------------------------------------------------------------------------
+// GeneralsX @feature Team-pooled money.  When TeamPooledMoney is on, every mutually-allied group
+// of players shares the ANCHOR teammate's Money object (anchor = lowest player index in the
+// group, frozen once at game start so it is stable for the whole match and identical on all
+// peers).  Everything that touches cash flows through getMoney(), so deposits, withdrawals, AI
+// affordability and the money display all see the one shared balance.
+//-------------------------------------------------------------------------------------------------
+Money *Player::getMoney()
+{
+	if( TheGlobalData != nullptr && TheGlobalData->m_teamPooledMoney
+			&& m_moneyPoolAnchorNdx >= 0 && m_moneyPoolAnchorNdx != m_playerIndex )
+	{
+		Player *anchor = ThePlayerList != nullptr ? ThePlayerList->getNthPlayer( m_moneyPoolAnchorNdx ) : nullptr;
+		if( anchor != nullptr )
+			return &anchor->m_money;	// same class: direct member access avoids recursion
+	}
+	return &m_money;
+}
+
+//-------------------------------------------------------------------------------------------------
+const Money *Player::getMoney() const
+{
+	if( TheGlobalData != nullptr && TheGlobalData->m_teamPooledMoney
+			&& m_moneyPoolAnchorNdx >= 0 && m_moneyPoolAnchorNdx != m_playerIndex )
+	{
+		const Player *anchor = ThePlayerList != nullptr ? ThePlayerList->getNthPlayer( m_moneyPoolAnchorNdx ) : nullptr;
+		if( anchor != nullptr )
+			return &anchor->m_money;
+	}
+	return &m_money;
+}
+
+//-------------------------------------------------------------------------------------------------
+// GeneralsX @feature Team-pooled money: freeze this player's pool anchor from the CURRENT
+// relationship map (mutual ALLIES both directions).  Called after alliances are established at
+// new-game start (PlayerList::newGame) and again on save-load (loadPostProcess) -- the result is
+// deterministic from sim state, so all peers agree.  Skirmish/ZH alliances are fixed at start;
+// scripted mid-game relationship changes (ScriptActions) deliberately do NOT re-anchor.
+// Observers, neutral and other non-playable sides always anchor to themselves (no pooling).
+//-------------------------------------------------------------------------------------------------
+void Player::computeMoneyPoolAnchor()
+{
+	m_moneyPoolAnchorNdx = m_playerIndex;	// default: my own pool
+
+	if( TheGlobalData == nullptr || !TheGlobalData->m_teamPooledMoney )
+		return;
+	if( isPlayerObserver() || !isPlayableSide() )
+		return;
+
+	// lowest player index among my mutual allies wins (scan ascending, first hit is lowest)
+	for( Int i = 0; i < m_playerIndex; ++i )
+	{
+		Player *other = ThePlayerList->getNthPlayer( i );
+		if( other == nullptr || other == this )
+			continue;
+		if( other->isPlayerObserver() || !other->isPlayableSide() )
+			continue;
+		if( getRelationship( other->getDefaultTeam() ) == ALLIES
+				&& other->getRelationship( getDefaultTeam() ) == ALLIES )
+		{
+			m_moneyPoolAnchorNdx = i;
+			break;
+		}
+	}
+}
+
+//-------------------------------------------------------------------------------------------------
+// GeneralsX @feature Team-pooled money: at new-game start (only!), move this player's initial
+// credits into the anchor's pool so the team starts with the sum.  Never called on save-load.
+//-------------------------------------------------------------------------------------------------
+void Player::friend_foldMoneyIntoPoolAnchor()
+{
+	if( TheGlobalData == nullptr || !TheGlobalData->m_teamPooledMoney )
+		return;
+	if( m_moneyPoolAnchorNdx < 0 || m_moneyPoolAnchorNdx == m_playerIndex )
+		return;
+
+	Player *anchor = ThePlayerList->getNthPlayer( m_moneyPoolAnchorNdx );
+	if( anchor == nullptr )
+		return;
+
+	const UnsignedInt credits = m_money.countMoney();
+	if( credits > 0 )
+	{
+		anchor->m_money.deposit( credits, FALSE, FALSE );
+		m_money.withdraw( credits, FALSE );
+	}
+}
+
+//-------------------------------------------------------------------------------------------------
 void Player::initFromDict(const Dict* d)
 {
 	AsciiString tmplname = d->getAsciiString(TheKey_playerFaction);
@@ -2087,7 +2178,11 @@ void Player::killPlayer()
 
 	}
 
-	m_money.withdraw(m_money.countMoney()); // force $$$ to 0 on death
+	// GeneralsX @feature Team-pooled money: never zero cash on death when pooling -- this
+	// player's m_money is either dead weight (non-anchor) or the LIVING teammates' shared
+	// pool (anchor), and wiping the latter would bankrupt the whole team.
+	if( TheGlobalData == nullptr || !TheGlobalData->m_teamPooledMoney )
+		m_money.withdraw(m_money.countMoney()); // force $$$ to 0 on death
 }
 
 //=============================================================================
@@ -4605,6 +4700,9 @@ void Player::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 void Player::loadPostProcess()
 {
-
+	// GeneralsX @feature Team-pooled money: re-freeze the pool anchor from the loaded
+	// relationship map.  Deterministic, and the anchor's xfer'd balance is authoritative --
+	// starting credits are NOT re-folded here (that happens only in PlayerList::newGame).
+	computeMoneyPoolAnchor();
 }
 

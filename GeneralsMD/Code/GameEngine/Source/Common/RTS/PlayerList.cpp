@@ -245,6 +245,15 @@ void PlayerList::newGame()
 
 	// GeneralsX @bugfix felipebraz 05/07/2026 Pre-compute the network slot to player mapping
 	resolveSlotIndices();
+
+	// GeneralsX @feature Team-pooled money: alliances and default teams are final here, so
+	// freeze every player's pool anchor, then fold each non-anchor teammate's starting credits
+	// into the anchor pool so the team starts with the sum.  Both loops are no-ops unless the
+	// GameData key TeamPooledMoney is on.
+	for( i = 0; i < getPlayerCount(); ++i )
+		getNthPlayer( i )->computeMoneyPoolAnchor();
+	for( i = 0; i < getPlayerCount(); ++i )
+		getNthPlayer( i )->friend_foldMoneyIntoPoolAnchor();
 }
 
 //-----------------------------------------------------------------------------

@@ -474,6 +474,8 @@ GlobalData* GlobalData::m_theOriginal = nullptr;
 	{ "WASDCameraPan",								INI::parseBool,				nullptr,			offsetof( GlobalData, m_wasdCameraPan ) },
 	// GeneralsX @feature Default LAN lobby preset (client lobby UI only).
 	{ "DefaultLANLobby2v6",						INI::parseBool,				nullptr,			offsetof( GlobalData, m_defaultLANLobby2v6 ) },
+	// GeneralsX @feature Team-pooled money (shared team bank; deterministic sim side).
+	{ "TeamPooledMoney",							INI::parseBool,				nullptr,			offsetof( GlobalData, m_teamPooledMoney ) },
 
 	{ "HumanSoloPlayerHealthBonus_Easy",					INI::parsePercentToReal,			nullptr,			offsetof( GlobalData, m_soloPlayerHealthBonusForDifficulty[PLAYER_HUMAN][DIFFICULTY_EASY] ) },
 	{ "HumanSoloPlayerHealthBonus_Normal",				INI::parsePercentToReal,			nullptr,			offsetof( GlobalData, m_soloPlayerHealthBonusForDifficulty[PLAYER_HUMAN][DIFFICULTY_NORMAL] ) },
@@ -1117,6 +1119,7 @@ GlobalData::GlobalData()
 
 	m_wasdCameraPan = FALSE;	// GeneralsX @feature WASD camera panning default off
 	m_defaultLANLobby2v6 = FALSE;	// GeneralsX @feature LAN 2v6 lobby preset default off
+	m_teamPooledMoney = FALSE;	// GeneralsX @feature team-pooled money default off
 
 	for (i = 0; i < PLAYERTYPE_COUNT; ++i)
 	{
