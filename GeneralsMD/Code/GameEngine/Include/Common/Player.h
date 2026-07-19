@@ -663,6 +663,13 @@ public:
 	Real getCashBounty() const { return m_cashBountyPercent; }
 	void setCashBounty(Real percentage) { m_cashBountyPercent = percentage; }
 	void doBountyForKill(const Object* killer, const Object* victim);
+	// GeneralsX @feature Max-rank perk BOUNTY: pays VeterancyMaxRankBountyPercent (GameData)
+	// of the victim's build cost; same money/score path as the GLA cash bounty above.
+	void doMaxRankBountyForKill(const Object* killer, const Object* victim);
+
+private:
+	void doBountyForKillWithPercent(const Object* killer, const Object* victim, Real percent);
+public:
 
 	AcademyStats* getAcademyStats() { return &m_academyStats; }
 	const AcademyStats* getAcademyStats() const { return &m_academyStats; }

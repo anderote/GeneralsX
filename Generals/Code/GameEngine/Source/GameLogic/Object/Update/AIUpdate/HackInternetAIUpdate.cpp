@@ -494,6 +494,7 @@ StateReturnType HackInternetState::update()
 				switch( xp->getVeterancyLevel() )
 				{
 					// GeneralsX @feature Extended veterancy: ranks above HEROIC hack heroic cash.
+					case LEVEL_HEROIC6:
 					case LEVEL_HEROIC5:
 					case LEVEL_HEROIC4:
 					case LEVEL_HEROIC3:

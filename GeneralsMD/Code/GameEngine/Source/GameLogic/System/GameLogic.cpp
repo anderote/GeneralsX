@@ -101,6 +101,7 @@
 #include "GameLogic/Module/CreateModule.h"
 #include "GameLogic/Module/DestroyModule.h"
 #include "GameLogic/Module/OpenContain.h"
+#include "GameLogic/ExperienceTracker.h"
 #include "GameLogic/PartitionManager.h"
 #include "GameLogic/PolygonTrigger.h"
 #include "GameLogic/ScriptActions.h"
@@ -3761,6 +3762,65 @@ extern __int64 Total_Load_3D_Assets;
 // ------------------------------------------------------------------------------------------------
 /** Update all objects in the world by invoking their update() methods. */
 // ------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
+/** GeneralsX @feature Max-rank perk MENTOR AURA.  Every VeterancyMentorScanFrames frames
+	* (GameData, default 60), each living, uncontained max-rank (LEVEL_LAST / HEROIC6) object
+	* grants a flat VeterancyMentorXP (default 2) experience points to friendly, trainable,
+	* non-max-rank units within VeterancyMentorRadius (default 150).  Deterministic partition
+	* scan in sim order (same idiom as PropagandaTowerBehavior::doScan); XP is added with
+	* canScaleForBonus = FALSE so no experience multipliers stack on the trickle.  The whole
+	* pass is skipped unless the GameData gate VeterancyMentorAura = Yes (default No). */
+//-------------------------------------------------------------------------------------------------
+static void updateVeterancyMentorAura( UnsignedInt frame )
+{
+	if( TheGlobalData == nullptr || !TheGlobalData->m_veterancyMentorAura )
+		return;
+
+	Int scanFrames = TheGlobalData->m_veterancyMentorScanFrames;
+	if( scanFrames < 1 )
+		scanFrames = 1;
+	if( (frame % (UnsignedInt)scanFrames) != 0 )
+		return;
+
+	const Int mentorXP = TheGlobalData->m_veterancyMentorXP;
+	const Real radius = TheGlobalData->m_veterancyMentorRadius;
+	if( mentorXP <= 0 || radius <= 0.0f )
+		return;
+
+	for( Object *mentor = TheGameLogic->getFirstObject(); mentor; mentor = mentor->getNextObject() )
+	{
+		if( mentor->isEffectivelyDead() || mentor->isDestroyed() )
+			continue;
+		if( mentor->getVeterancyLevel() < LEVEL_LAST )
+			continue;
+		if( mentor->getContainedBy() != nullptr )
+			continue;
+		if( mentor->testStatus( OBJECT_STATUS_UNDER_CONSTRUCTION ) )
+			continue;
+
+		PartitionFilterRelationship relationship( mentor, PartitionFilterRelationship::ALLOW_ALLIES );
+		PartitionFilterAlive filterAlive;
+		PartitionFilterSameMapStatus filterMapStatus( mentor );
+		PartitionFilter *filters[] = { &relationship, &filterAlive, &filterMapStatus, nullptr };
+
+		ObjectIterator *iter = ThePartitionManager->iterateObjectsInRange(
+			mentor->getPosition(), radius, FROM_CENTER_2D, filters );
+		MemoryPoolObjectHolder hold( iter );
+		for( Object *student = iter->first(); student; student = iter->next() )
+		{
+			if( student == mentor )
+				continue;
+			ExperienceTracker *xp = student->getExperienceTracker();
+			if( xp == nullptr || !xp->isTrainable() )
+				continue;
+			if( xp->getVeterancyLevel() >= LEVEL_LAST )
+				continue;
+			xp->addExperiencePoints( mentorXP, FALSE );	// flat trickle: never scaled
+		}
+	}
+}
+
+//-------------------------------------------------------------------------------------------------
 void GameLogic::update()
 {
 	USE_PERF_TIMER(GameLogic_update)
@@ -4002,6 +4062,12 @@ void GameLogic::update()
 	{
 		g_crashDiagUpdateStage = "GameLogic: ThePartitionManager->update";
 		ThePartitionManager->UPDATE();
+	}
+
+	// GeneralsX @feature Max-rank perk MENTOR AURA (no-op unless VeterancyMentorAura = Yes)
+	{
+		g_crashDiagUpdateStage = "GameLogic: veterancy mentor aura";
+		updateVeterancyMentorAura( now );
 	}
 
 	//

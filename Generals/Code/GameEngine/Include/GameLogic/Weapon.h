@@ -212,10 +212,14 @@ enum WeaponBonusConditionType CPP_11(: Int)
 	// These are cumulative: at LEVEL_HEROIC3, HERO + HERO2 + HERO3 are all set, so
 	// each level's WeaponBonus entry defines the marginal bonus on top of the previous.
 	// NOTE: WeaponBonusConditionFlags is a 32-bit UnsignedInt; count must stay <= 32.
+	// HERO6 occupies bit 31, so the mask is now FULL (32 of 32 bits used): adding ANY
+	// further condition requires widening WeaponBonusConditionFlags to 64 bits first
+	// (and auditing every shift site for 64-bit-safe shifts).
 	WEAPONBONUSCONDITION_HERO2,
 	WEAPONBONUSCONDITION_HERO3,
 	WEAPONBONUSCONDITION_HERO4,
 	WEAPONBONUSCONDITION_HERO5,
+	WEAPONBONUSCONDITION_HERO6,
 
 	WEAPONBONUSCONDITION_COUNT
 };
@@ -259,6 +263,7 @@ static const char *const TheWeaponBonusNames[] =
 	"HERO3",
 	"HERO4",
 	"HERO5",
+	"HERO6",
 
 	nullptr
 };

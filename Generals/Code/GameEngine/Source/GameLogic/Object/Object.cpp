@@ -2876,9 +2876,9 @@ void Object::onVeterancyLevelChanged( VeterancyLevel oldLevel, VeterancyLevel ne
 	if (body)
 		body->onVeterancyLevelChanged(oldLevel, newLevel, provideFeedback);
 
-	// GeneralsX @feature Extended veterancy: predicate-driven so all 8 levels are handled.
+	// GeneralsX @feature Extended veterancy: predicate-driven so all 9 levels are handled.
 	// Levels above HEROIC keep using the HEROIC weapon set (no new per-level weapon variants),
-	// and the HERO weapon bonus stays active with HERO2..HERO5 stacking cumulatively on top.
+	// and the HERO weapon bonus stays active with HERO2..HERO6 stacking cumulatively on top.
 	if (newLevel == LEVEL_VETERAN)
 		setWeaponSetFlag(WEAPONSET_VETERAN);
 	else
@@ -2928,6 +2928,11 @@ void Object::onVeterancyLevelChanged( VeterancyLevel oldLevel, VeterancyLevel ne
 		setWeaponBonusCondition(WEAPONBONUSCONDITION_HERO5);
 	else
 		clearWeaponBonusCondition(WEAPONBONUSCONDITION_HERO5);
+
+	if (newLevel >= LEVEL_HEROIC6)
+		setWeaponBonusCondition(WEAPONBONUSCONDITION_HERO6);
+	else
+		clearWeaponBonusCondition(WEAPONBONUSCONDITION_HERO6);
 
 	Bool doAnimation = provideFeedback
 		&& newLevel > oldLevel

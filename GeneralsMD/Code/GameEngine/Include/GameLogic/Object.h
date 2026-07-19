@@ -566,7 +566,9 @@ public:
 	void clearWeaponBonusCondition(WeaponBonusConditionType wst);
 
   // note, the !=0 at the end is important, to convert this into a boolean type! (srj)
-	Bool testWeaponBonusCondition(WeaponBonusConditionType wst) const { return (m_weaponBonusCondition & (1 << wst)) != 0; }
+	// GeneralsX @feature Extended veterancy: HERO6 uses bit 31, so shift with an unsigned
+	// operand (1u) -- (1 << 31) on a signed int literal is undefined behavior.
+	Bool testWeaponBonusCondition(WeaponBonusConditionType wst) const { return (m_weaponBonusCondition & (1u << wst)) != 0; }
 	inline WeaponBonusConditionFlags getWeaponBonusCondition() const { return m_weaponBonusCondition; }
 
 	Bool getSingleLogicalBonePosition(const char* boneName, Coord3D* position, Matrix3D* transform) const;

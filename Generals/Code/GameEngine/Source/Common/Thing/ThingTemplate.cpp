@@ -566,11 +566,14 @@ void ThingTemplate::parseIntList(INI* ini, void *instance, void* store, const vo
 
 //-------------------------------------------------------------------------------------------------
 // GeneralsX @feature Extended veterancy: parse an int list indexed by veterancy level.
-// Shipped INIs provide exactly 4 values (REGULAR..HEROIC); with LEVEL_COUNT now 8 we accept
+// Shipped INIs provide exactly 4 values (REGULAR..HEROIC); with LEVEL_COUNT now 9 we accept
 // anywhere from 1 to LEVEL_COUNT values and extrapolate the missing high ranks so legacy data
 // keeps working unchanged:
 //  - thresholds (ExperienceRequired, userData != 0): each missing rank costs 1.75x the previous
-//    rank's experience increment: t[i] = t[i-1] + 1.75 * (t[i-1] - t[i-2])
+//    rank's experience increment: t[i] = t[i-1] + 1.75 * (t[i-1] - t[i-2]).
+//    EXCEPTION: the step up to the FINAL rank (LEVEL_LAST / HEROIC6) uses the GameData key
+//    VeterancyFinalRankXPFactor (default 3.0) instead of 1.75, so the top rank is much
+//    harder to reach.  Providing all LEVEL_COUNT values explicitly bypasses extrapolation.
 //  - values (ExperienceValue/SkillPointValue, userData == 0): continue the last increment
 //    linearly and never downward: v[i] = v[i-1] + max(0, v[i-1] - v[i-2])
 void ThingTemplate::parseVeterancyIntList(INI* ini, void *instance, void* store, const void* userData)
@@ -588,13 +591,17 @@ void ThingTemplate::parseVeterancyIntList(INI* ini, void *instance, void* store,
 	if (numProvided <= 0)
 		return;
 
+	// GeneralsX @feature Extended veterancy: the final rank's extrapolated threshold step is
+	// scaled by VeterancyFinalRankXPFactor (GameData, default 3.0) instead of the usual 1.75.
+	const Real finalRankFactor = TheGlobalData ? TheGlobalData->m_veterancyFinalRankXPFactor : 3.0f;
+
 	for( Int i = numProvided; i < LEVEL_COUNT; ++i )
 	{
 		Int increment = (i >= 2) ? (intList[i - 1] - intList[i - 2]) : 0;
 		if (increment < 0)
 			increment = 0;
 		if (isThresholds)
-			increment = (Int)(increment * 1.75f);
+			increment = (Int)(increment * ((i == LEVEL_LAST) ? finalRankFactor : 1.75f));
 		intList[i] = intList[i - 1] + increment;
 	}
 }

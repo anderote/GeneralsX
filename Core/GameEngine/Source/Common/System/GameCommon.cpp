@@ -40,6 +40,7 @@ const char *const TheVeterancyNames[] =
 	"HEROIC3",
 	"HEROIC4",
 	"HEROIC5",
+	"HEROIC6",
 	nullptr
 };
 static_assert(ARRAY_SIZE(TheVeterancyNames) == LEVEL_COUNT + 1, "Incorrect array size");

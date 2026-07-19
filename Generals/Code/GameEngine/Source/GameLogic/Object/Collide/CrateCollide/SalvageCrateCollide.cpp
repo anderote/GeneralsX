@@ -131,7 +131,7 @@ Bool SalvageCrateCollide::eligibleForLevel( Object *other )
 		return FALSE;
 
 	// Sorry, you are max level
-	// GeneralsX @feature Extended veterancy: max level is now LEVEL_LAST (HEROIC5), so
+	// GeneralsX @feature Extended veterancy: max level is now LEVEL_LAST (HEROIC6), so
 	// salvage crates can keep leveling units through the new ranks above HEROIC.
 	if( other->getExperienceTracker()->getVeterancyLevel() >= LEVEL_LAST )
 		return FALSE;

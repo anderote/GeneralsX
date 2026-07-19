@@ -24,6 +24,7 @@
 
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 
+#include "Common/GlobalData.h"
 #include "Common/NameKeyGenerator.h"
 #include "Common/Player.h"
 #include "Common/ThingFactory.h"
@@ -153,7 +154,74 @@ void RespawnAtBuildingDie::onDie( const DamageInfo *damageInfo )
 												 data->m_respawnAtKindOf,
 												 data->m_delayFrames,
 												 data->m_preserveExperience,
-												 data->m_fullHealth );
+												 data->m_fullHealth,
+												 1.0f );
+}
+
+//-------------------------------------------------------------------------------------------------
+/** GeneralsX @feature Max-rank perk DEATH-DEFIANCE.  Global respawn path, gated on the GameData
+	* key VeterancyMaxRankRespawn (default No): when a max-rank (LEVEL_LAST) infantry/vehicle dies,
+	* respawn it at the nearest friendly VeterancyMaxRankRespawnAtKindOf building with its exact
+	* experience preserved and VeterancyMaxRankRespawnHealthPercent (default 50%) health.  This is
+	* the same marker mechanism the module uses; objects that carry their own RespawnAtBuildingDie
+	* module are skipped here so they never respawn twice.  Called from Object::onDie. */
+//-------------------------------------------------------------------------------------------------
+/*static*/ void RespawnAtBuildingDie::maybeGlobalMaxRankRespawn( Object *obj )
+{
+	if( obj == nullptr || TheGlobalData == nullptr || !TheGlobalData->m_veterancyMaxRankRespawn )
+		return;
+
+	// only max-rank units earn the perk
+	if( obj->getVeterancyLevel() < LEVEL_LAST )
+		return;
+
+	// infantry and vehicles only; no drones, nothing under construction, nothing contained
+	if( !obj->isKindOf( KINDOF_INFANTRY ) && !obj->isKindOf( KINDOF_VEHICLE ) )
+		return;
+	if( obj->isKindOf( KINDOF_DRONE ) )
+		return;
+	if( obj->testStatus( OBJECT_STATUS_UNDER_CONSTRUCTION ) )
+		return;
+	if( obj->getContainedBy() != nullptr )
+		return;
+	if( obj->getTeam() == nullptr )
+		return;
+
+	// NOTE: objects carrying their own RespawnAtBuildingDie module are filtered out by the
+	// caller (Object::onDie checks findModule, which is protected there) so they never
+	// respawn twice.
+
+	// same marker idiom as the module path: inert when the data layer is absent
+	const ThingTemplate *markerTemplate =
+		TheThingFactory->findTemplate( TheGlobalData->m_veterancyMaxRankRespawnMarkerName, FALSE );
+	if( markerTemplate == nullptr )
+		return;
+
+	Object *marker = TheThingFactory->newObject( markerTemplate, obj->getTeam() );
+	if( marker == nullptr )
+		return;
+
+	marker->setPosition( obj->getPosition() );
+
+	static NameKeyType key_RespawnMarkerUpdate = NAMEKEY( "RespawnMarkerUpdate" );
+	RespawnMarkerUpdate *respawn = (RespawnMarkerUpdate *)marker->findUpdateModule( key_RespawnMarkerUpdate );
+	if( respawn == nullptr )
+	{
+		DEBUG_ASSERTCRASH( FALSE, ("maybeGlobalMaxRankRespawn: marker template '%s' lacks a RespawnMarkerUpdate module",
+			TheGlobalData->m_veterancyMaxRankRespawnMarkerName.str()) );
+		TheGameLogic->destroyObject( marker );
+		return;
+	}
+
+	const ExperienceTracker *xpTracker = obj->getExperienceTracker();
+	respawn->startRespawn( obj->getTemplate()->getName(),
+												 obj->getVeterancyLevel(),
+												 xpTracker != nullptr ? xpTracker->getCurrentExperience() : 0,
+												 TheGlobalData->m_veterancyMaxRankRespawnAtKindOf,
+												 0,		// next frame; the marker enforces a 1-frame minimum
+												 TRUE,	// preserve exact experience
+												 FALSE,	// not full health...
+												 TheGlobalData->m_veterancyMaxRankRespawnHealthPercent );
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -222,6 +290,7 @@ RespawnMarkerUpdate::RespawnMarkerUpdate( Thing *thing, const ModuleData* module
 	m_respawnFrame = 0;
 	m_experience = 0;
 	m_veterancyLevel = LEVEL_REGULAR;
+	m_spawnHealthPercent = 1.0f;
 	m_armed = FALSE;
 	m_preserveExperience = TRUE;
 	m_fullHealth = TRUE;
@@ -237,7 +306,7 @@ RespawnMarkerUpdate::~RespawnMarkerUpdate()
 void RespawnMarkerUpdate::startRespawn( const AsciiString& templateName, VeterancyLevel level,
 																				Int experience, const KindOfMaskType& respawnAtKindOf,
 																				UnsignedInt delayFrames, Bool preserveExperience,
-																				Bool fullHealth )
+																				Bool fullHealth, Real spawnHealthPercent )
 {
 	m_respawnTemplateName = templateName;
 	m_veterancyLevel = level;
@@ -246,6 +315,7 @@ void RespawnMarkerUpdate::startRespawn( const AsciiString& templateName, Veteran
 	m_respawnFrame = TheGameLogic->getFrame() + (delayFrames > 0 ? delayFrames : 1);
 	m_preserveExperience = preserveExperience;
 	m_fullHealth = fullHealth;
+	m_spawnHealthPercent = spawnHealthPercent;
 	m_armed = TRUE;
 }
 
@@ -341,6 +411,13 @@ void RespawnMarkerUpdate::doRespawn()
 		if( body != nullptr && body->getHealth() < body->getMaxHealth() )
 			body->internalChangeHealth( body->getMaxHealth() - body->getHealth() );
 	}
+	else if( m_spawnHealthPercent > 0.0f && m_spawnHealthPercent < 1.0f )
+	{
+		// GeneralsX @feature max-rank DEATH-DEFIANCE: come back wounded, not fresh
+		BodyModuleInterface *body = newObj->getBodyModule();
+		if( body != nullptr )
+			body->internalChangeHealth( body->getMaxHealth() * m_spawnHealthPercent - body->getHealth() );
+	}
 
 	// place the unit like freshly-produced units: exit door + rally point when the building
 	// has an exit interface, otherwise drop it at the building's edge
@@ -405,8 +482,8 @@ void RespawnMarkerUpdate::crc( Xfer *xfer )
 void RespawnMarkerUpdate::xfer( Xfer *xfer )
 {
 
-	// version
-	XferVersion currentVersion = 1;
+	// version (2: added m_spawnHealthPercent for the max-rank DEATH-DEFIANCE perk)
+	XferVersion currentVersion = 2;
 	XferVersion version = currentVersion;
 	xfer->xferVersion( &version, currentVersion );
 
@@ -421,6 +498,8 @@ void RespawnMarkerUpdate::xfer( Xfer *xfer )
 	xfer->xferBool( &m_armed );
 	xfer->xferBool( &m_preserveExperience );
 	xfer->xferBool( &m_fullHealth );
+	if( version >= 2 )
+		xfer->xferReal( &m_spawnHealthPercent );
 
 }
 

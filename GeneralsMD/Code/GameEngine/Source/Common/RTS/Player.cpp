@@ -2458,6 +2458,22 @@ Bool Player::calcClosestConstructionZoneLocation( const ThingTemplate *construct
 //=============================================================================
 void Player::doBountyForKill(const Object* killer, const Object* victim)
 {
+	doBountyForKillWithPercent(killer, victim, m_cashBountyPercent);
+}
+
+//-------------------------------------------------------------------------------------------------
+// GeneralsX @feature Max-rank perk BOUNTY: same award path as the GLA cash bounty, but driven by
+// the GameData key VeterancyMaxRankBountyPercent instead of the player's cash-bounty science.
+// The caller (Object::scoreTheKill) gates on max rank + the template's MaxRankBounty flag.
+//-------------------------------------------------------------------------------------------------
+void Player::doMaxRankBountyForKill(const Object* killer, const Object* victim)
+{
+	doBountyForKillWithPercent(killer, victim, TheGlobalData->m_veterancyMaxRankBountyPercent);
+}
+
+//-------------------------------------------------------------------------------------------------
+void Player::doBountyForKillWithPercent(const Object* killer, const Object* victim, Real percent)
+{
 	if (!killer || !victim)
 		return;
 
@@ -2467,10 +2483,10 @@ void Player::doBountyForKill(const Object* killer, const Object* victim)
 
 	Int costToBuild = victim->getTemplate()->calcCostToBuild(victim->getControllingPlayer());
 #if RETAIL_COMPATIBLE_CRC
-	Int bounty = REAL_TO_INT_CEIL(costToBuild * m_cashBountyPercent);
+	Int bounty = REAL_TO_INT_CEIL(costToBuild * percent);
 #else
 	// TheSuperHackers @bugfix Stubbjax 20/02/2026 Subtract epsilon to ensure bounty is rounded up correctly.
-	Int bounty = WWMath::Ceil((costToBuild * m_cashBountyPercent) - WWMATH_EPSILON);
+	Int bounty = WWMath::Ceil((costToBuild * percent) - WWMATH_EPSILON);
 #endif
 
 	if( bounty )

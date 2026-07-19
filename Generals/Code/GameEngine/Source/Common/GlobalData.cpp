@@ -426,6 +426,10 @@ GlobalData* GlobalData::m_theOriginal = nullptr;
 	{ "HealthBonus_Heroic3",				INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_healthBonus[LEVEL_HEROIC3]) },
 	{ "HealthBonus_Heroic4",				INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_healthBonus[LEVEL_HEROIC4]) },
 	{ "HealthBonus_Heroic5",				INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_healthBonus[LEVEL_HEROIC5]) },
+	{ "HealthBonus_Heroic6",				INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_healthBonus[LEVEL_HEROIC6]) },
+	// GeneralsX @feature Extended veterancy: extrapolation multiplier for the final rank's
+	// (HEROIC6) missing ExperienceRequired step; ranks below it extrapolate at 1.75x.
+	{ "VeterancyFinalRankXPFactor",	INI::parseReal,					 nullptr,	offsetof( GlobalData, m_veterancyFinalRankXPFactor ) },
 
 	{ "HumanSoloPlayerHealthBonus_Easy",					INI::parsePercentToReal,			nullptr,			offsetof( GlobalData, m_soloPlayerHealthBonusForDifficulty[PLAYER_HUMAN][DIFFICULTY_EASY] ) },
 	{ "HumanSoloPlayerHealthBonus_Normal",				INI::parsePercentToReal,			nullptr,			offsetof( GlobalData, m_soloPlayerHealthBonusForDifficulty[PLAYER_HUMAN][DIFFICULTY_NORMAL] ) },
@@ -1010,12 +1014,19 @@ GlobalData::GlobalData()
 
 	// GeneralsX @feature Extended veterancy: shipped GameData.ini only sets HealthBonus_ for
 	// Veteran/Elite/Heroic (vanilla 120/130/150%). Default the new ranks to a smooth
-	// extrapolation of that curve (+20% of base health per rank): 170/190/210/230%.
-	// Overridable via HealthBonus_Heroic2..HealthBonus_Heroic5 in GameData.ini.
+	// extrapolation of that curve (+20% of base health per rank): 170/190/210/230/250%.
+	// Overridable via HealthBonus_Heroic2..HealthBonus_Heroic6 in GameData.ini.
 	m_healthBonus[LEVEL_HEROIC2] = 1.7f;
 	m_healthBonus[LEVEL_HEROIC3] = 1.9f;
 	m_healthBonus[LEVEL_HEROIC4] = 2.1f;
 	m_healthBonus[LEVEL_HEROIC5] = 2.3f;
+	m_healthBonus[LEVEL_HEROIC6] = 2.5f;
+
+	// GeneralsX @feature Extended veterancy: the final rank (HEROIC6) is meant to be A LOT
+	// harder to reach.  When ExperienceRequired data does not define the last level, the
+	// extrapolated step to LEVEL_LAST is multiplied by this factor instead of the usual 1.75.
+	// Overridable via VeterancyFinalRankXPFactor in GameData.ini.
+	m_veterancyFinalRankXPFactor = 3.0f;
 
 	for (i = 0; i < PLAYERTYPE_COUNT; ++i)
 	{

@@ -280,6 +280,30 @@ UpdateSleepTime AutoHealBehavior::update()
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
+// GeneralsX @feature Max-rank perk BATTLE-HARDENED REGEN helper: is this module the veterancy
+// self-heal (TriggeredBy Upgrade_Veterancy_*)?  Both name vectors are checked because the
+// activation names move into the trigger names once the upgrade masks get computed.
+//-------------------------------------------------------------------------------------------------
+static Bool isVeterancyTriggeredHeal( const AutoHealBehaviorModuleData *data )
+{
+	std::vector<AsciiString>::const_iterator it;
+	const std::vector<AsciiString> &trig = data->m_upgradeMuxData.m_triggerUpgradeNames;
+	for( it = trig.begin(); it != trig.end(); ++it )
+	{
+		if( it->startsWithNoCase( "Upgrade_Veterancy_" ) )
+			return TRUE;
+	}
+	const std::vector<AsciiString> &act = data->m_upgradeMuxData.m_activationUpgradeNames;
+	for( it = act.begin(); it != act.end(); ++it )
+	{
+		if( it->startsWithNoCase( "Upgrade_Veterancy_" ) )
+			return TRUE;
+	}
+	return FALSE;
+}
+
+//-------------------------------------------------------------------------------------------------
 void AutoHealBehavior::pulseHealObject( Object *obj )
 {
 	if (m_stopped)
@@ -289,7 +313,30 @@ void AutoHealBehavior::pulseHealObject( Object *obj )
 
 
 	if ( data->m_radius == 0.0f )
-		obj->attemptHealing(data->m_healingAmount, getObject());
+	{
+		Real healAmount = data->m_healingAmount;
+
+		// GeneralsX @feature Max-rank perk BATTLE-HARDENED REGEN: at LEVEL_LAST (HEROIC6) the
+		// veterancy self-heal pulses VeterancyMaxRankRegenPercent (GameData, default 3%) of max
+		// health per second INSTEAD of the module's normal HealingAmount.  Scoped to the
+		// veterancy-triggered single-target self-heal so ambulances/whole-player healers and
+		// non-veterancy repair modules keep their configured rates.
+		if( obj == getObject()
+				&& !data->m_affectsWholePlayer
+				&& obj->getVeterancyLevel() >= LEVEL_LAST
+				&& TheGlobalData->m_veterancyMaxRankRegenPercent > 0.0f
+				&& isVeterancyTriggeredHeal( data ) )
+		{
+			BodyModuleInterface *body = obj->getBodyModule();
+			if( body != nullptr )
+			{
+				healAmount = body->getMaxHealth() * TheGlobalData->m_veterancyMaxRankRegenPercent
+										 * ( (Real)data->m_healingDelay / (Real)LOGICFRAMES_PER_SECOND );
+			}
+		}
+
+		obj->attemptHealing(healAmount, getObject());
+	}
 	else
 		obj->attemptHealingFromSoleBenefactor( data->m_healingAmount, getObject(), data->m_healingDelay );
 

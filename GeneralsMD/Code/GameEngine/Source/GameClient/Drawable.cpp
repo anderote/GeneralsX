@@ -315,12 +315,12 @@ const Int MAX_ENABLED_MODULES								= 16;
 	s_veterancyImage[2] = TheMappedImageCollection->findImageByName("SCVeter2");
 	s_veterancyImage[3] = TheMappedImageCollection->findImageByName("SCVeter3");
 
-	// GeneralsX @feature Extended veterancy: dedicated insignia for HEROIC2..HEROIC5 when the
-	// art is present (shipped by a data layer as MappedImages SCVeter4..SCVeter7).  Each rank
+	// GeneralsX @feature Extended veterancy: dedicated insignia for HEROIC2..HEROIC6 when the
+	// art is present (shipped by a data layer as MappedImages SCVeter4..SCVeter8).  Each rank
 	// falls back to the previous rank's image (ultimately the HEROIC chevron) when missing, so
 	// the feature is data-optional.  drawVeterancy() also tolerates null entries, so this can
 	// never crash.
-	static const char *const extendedVeterancyImageNames[] = { "SCVeter4", "SCVeter5", "SCVeter6", "SCVeter7" };
+	static const char *const extendedVeterancyImageNames[] = { "SCVeter4", "SCVeter5", "SCVeter6", "SCVeter7", "SCVeter8" };
 	for (Int i = LEVEL_HEROIC + 1; i < LEVEL_COUNT; ++i)
 	{
 		const Image *image = TheMappedImageCollection->findImageByName( extendedVeterancyImageNames[i - (LEVEL_HEROIC + 1)] );
@@ -3273,12 +3273,14 @@ void Drawable::drawVeterancyProgressText( const IRegion2D *healthBarRegion )
 	static const Char *const rankLabels[LEVEL_COUNT] =
 	{
 		"GUI:VeterancyRegular", "GUI:VeterancyVeteran", "GUI:VeterancyElite", "GUI:VeterancyHeroic",
-		"GUI:VeterancyHeroic2", "GUI:VeterancyHeroic3", "GUI:VeterancyHeroic4", "GUI:VeterancyHeroic5"
+		"GUI:VeterancyHeroic2", "GUI:VeterancyHeroic3", "GUI:VeterancyHeroic4", "GUI:VeterancyHeroic5",
+		"GUI:VeterancyHeroic6"
 	};
 	static const WideChar *const rankFallbacks[LEVEL_COUNT] =
 	{
 		L"Regular", L"Veteran", L"Elite", L"Heroic",
-		L"Heroic 2", L"Heroic 3", L"Heroic 4", L"Heroic 5"
+		L"Heroic 2", L"Heroic 3", L"Heroic 4", L"Heroic 5",
+		L"Heroic 6"
 	};
 
 	UnicodeString rankName = TheGameText->fetchOrSubstitute( rankLabels[level], rankFallbacks[level] );

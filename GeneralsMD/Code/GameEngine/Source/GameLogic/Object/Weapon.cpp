@@ -3614,7 +3614,8 @@ void WeaponBonusSet::appendBonuses(WeaponBonusConditionFlags flags, WeaponBonus&
 
 	for (int i = 0; i < WEAPONBONUSCONDITION_COUNT; ++i)
 	{
-		if ((flags & (1 << i)) == 0)
+		// GeneralsX @feature Extended veterancy: i can reach bit 31 (HERO6); 1u avoids UB.
+		if ((flags & (1u << i)) == 0)
 			continue;
 
 		this->m_bonus[i].appendBonuses(bonus);

@@ -101,6 +101,11 @@ public:
 
 	virtual void onDie( const DamageInfo *damageInfo ) override;
 
+	// GeneralsX @feature Max-rank perk DEATH-DEFIANCE: global (module-less) respawn path for
+	// max-rank infantry/vehicles, gated on GameData VeterancyMaxRankRespawn.  Reuses the
+	// marker mechanics below; called from Object::onDie for objects WITHOUT this die module.
+	static void maybeGlobalMaxRankRespawn( Object *obj );
+
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -136,10 +141,12 @@ public:
 	/// keep counting down even if something manages to disable the inert marker
 	virtual DisabledMaskType getDisabledTypesToProcess() const override { return DISABLEDMASK_ALL; }
 
-	/// arm the countdown; called by RespawnAtBuildingDie::onDie with the dying unit's state
+	/// arm the countdown; called by RespawnAtBuildingDie::onDie with the dying unit's state.
+	/// spawnHealthPercent applies when fullHealth is FALSE: 0 < pct < 1 sets the respawned
+	/// unit's health to that fraction of max (GeneralsX max-rank perk DEATH-DEFIANCE).
 	void startRespawn( const AsciiString& templateName, VeterancyLevel level, Int experience,
 										 const KindOfMaskType& respawnAtKindOf, UnsignedInt delayFrames,
-										 Bool preserveExperience, Bool fullHealth );
+										 Bool preserveExperience, Bool fullHealth, Real spawnHealthPercent );
 
 protected:
 
@@ -151,6 +158,7 @@ protected:
 	UnsignedInt			m_respawnFrame;					///< frame at which to respawn
 	Int							m_experience;						///< exact experience points at death
 	VeterancyLevel	m_veterancyLevel;				///< veterancy level at death
+	Real						m_spawnHealthPercent;		///< respawn health fraction when not FullHealth (1.0 = untouched)
 	Bool						m_armed;								///< startRespawn received
 	Bool						m_preserveExperience;
 	Bool						m_fullHealth;

@@ -1025,12 +1025,13 @@ private:
 	static const Image *m_rankVeteranIcon;
 	static const Image *m_rankEliteIcon;
 	static const Image *m_rankHeroicIcon;
-	// GeneralsX @feature Extended veterancy: dedicated cameo overlays for HEROIC2..HEROIC5,
+	// GeneralsX @feature Extended veterancy: dedicated cameo overlays for HEROIC2..HEROIC6,
 	// falling back to the heroic icon when the (data-optional) art is not shipped.
 	static const Image *m_rankHeroic2Icon;
 	static const Image *m_rankHeroic3Icon;
 	static const Image *m_rankHeroic4Icon;
 	static const Image *m_rankHeroic5Icon;
+	static const Image *m_rankHeroic6Icon;
 
 	const Image *m_generalButtonEnable;
 	const Image *m_generalButtonHighlight;

@@ -364,6 +364,11 @@ public:
 	Int m_maxFieldParticleCount;			///< maximum number of field-type particles that can exist (roughly)
 	WeaponBonusSet* m_weaponBonusSet;
 	Real m_healthBonus[LEVEL_COUNT];			///< global bonuses to health for veterancy.
+	// GeneralsX @feature Extended veterancy: XP-threshold extrapolation multiplier for the
+	// FINAL rank only (LEVEL_LAST / HEROIC6).  Ranks with missing ExperienceRequired data
+	// extrapolate at 1.75x the previous increment; the last step uses this factor instead,
+	// making the top rank much harder to reach.  INI key: VeterancyFinalRankXPFactor (default 3.0).
+	Real m_veterancyFinalRankXPFactor;
 	Real m_defaultStructureRubbleHeight;	///< for rubbled structures, compress height to this if none specified
 
 	AsciiString m_shellMapName;				///< Holds the shell map name

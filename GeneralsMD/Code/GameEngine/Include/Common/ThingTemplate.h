@@ -465,6 +465,10 @@ public:
 	Bool isTrainable() const{return m_isTrainable; }
 	Bool isEnterGuard() const{return m_enterGuard; }
 	Bool isHijackGuard() const{return m_hijackGuard; }
+	// GeneralsX @feature vision-scales-with-veterancy opt-in (VisionBonusFromVeterancy = Yes)
+	Bool isVisionBonusFromVeterancy() const{return m_visionBonusFromVeterancy; }
+	// GeneralsX @feature max-rank BOUNTY perk opt-in (MaxRankBounty = Yes)
+	Bool isMaxRankBounty() const{return m_maxRankBounty; }
 
 	const AudioEventRTS *getVoiceSelect() const								{ return getAudio(TTAUDIO_voiceSelect); }
 	const AudioEventRTS *getVoiceGroupSelect() const					{ return getAudio(TTAUDIO_voiceGroupSelect); }
@@ -758,6 +762,8 @@ private:
 	Bool					m_isBridge;										///< True if this model is a bridge.
  	Bool					m_isBuildFacility;						///< is this the build facility for something? (calculated based on other template's prereqs)
 	Bool					m_isTrainable;								///< Whether or not I can even gain experience
+	Bool					m_visionBonusFromVeterancy;		///< GeneralsX @feature scale VisionRange/ShroudClearingRange with veterancy rank
+	Bool					m_maxRankBounty;							///< GeneralsX @feature at max rank, kills pay a bounty (VeterancyMaxRankBountyPercent of victim cost)
 	Bool          m_enterGuard;									///< Whether or not I can enter objects when guarding
 	Bool          m_hijackGuard;								///< Whether or not I can hijack objects when guarding
 	Bool					m_isForbidden;								///< useful when overriding in <mapfile>.ini

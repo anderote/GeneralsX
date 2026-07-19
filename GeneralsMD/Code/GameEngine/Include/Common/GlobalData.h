@@ -37,6 +37,7 @@
 #include "GameClient/Color.h"
 #include "Common/STLTypedefs.h"
 #include "Common/Money.h"
+#include "Common/KindOf.h"
 
 // FORWARD DECLARATIONS ///////////////////////////////////////////////////////////////////////////
 struct FieldParse;
@@ -365,6 +366,29 @@ public:
 	Int m_maxFieldParticleCount;			///< maximum number of field-type particles that can exist (roughly)
 	WeaponBonusSet* m_weaponBonusSet;
 	Real m_healthBonus[LEVEL_COUNT];			///< global bonuses to health for veterancy.
+	// GeneralsX @feature opt-in vision-scales-with-veterancy: per-rank multiplier applied to a
+	// unit's VisionRange/ShroudClearingRange, but ONLY for objects that set
+	// VisionBonusFromVeterancy = Yes. Defaults to a modest +10%/rank curve; override with
+	// VisionBonus_Veteran .. VisionBonus_Heroic6 in GameData.ini.
+	Real m_visionBonus[LEVEL_COUNT];			///< per-rank vision multiplier (opt-in per object)
+
+	// GeneralsX @feature Max-rank (LEVEL_LAST / HEROIC6) perks.  All optional GameData keys
+	// with conservative defaults; every perk is inert unless its gate key/percent enables it.
+	Bool m_veterancyMaxRankRespawn;										///< DEATH-DEFIANCE: global respawn-at-building for max-rank units (VeterancyMaxRankRespawn, default No)
+	Real m_veterancyMaxRankRespawnHealthPercent;			///< respawn health fraction (VeterancyMaxRankRespawnHealthPercent, default 50%)
+	KindOfMaskType m_veterancyMaxRankRespawnAtKindOf;	///< building filter for the global respawn (VeterancyMaxRankRespawnAtKindOf, default COMMANDCENTER)
+	AsciiString m_veterancyMaxRankRespawnMarkerName;	///< countdown proxy template (VeterancyMaxRankRespawnMarkerName, default VeterancyRespawnMarker)
+	Real m_veterancyMaxRankRegenPercent;							///< BATTLE-HARDENED REGEN: max-health fraction healed per second at max rank (VeterancyMaxRankRegenPercent, default 3%)
+	Real m_veterancyMaxRankBountyPercent;							///< BOUNTY: fraction of victim BuildCost paid per kill by flagged max-rank units (VeterancyMaxRankBountyPercent, default 10%)
+	Bool m_veterancyMentorAura;												///< MENTOR AURA gate (VeterancyMentorAura, default No)
+	Int m_veterancyMentorScanFrames;									///< frames between mentor scans (VeterancyMentorScanFrames, default 60)
+	Int m_veterancyMentorXP;													///< XP granted per scan to nearby friendlies (VeterancyMentorXP, default 2)
+	Real m_veterancyMentorRadius;											///< mentor aura radius (VeterancyMentorRadius, default 150)
+	// GeneralsX @feature Extended veterancy: XP-threshold extrapolation multiplier for the
+	// FINAL rank only (LEVEL_LAST / HEROIC6).  Ranks with missing ExperienceRequired data
+	// extrapolate at 1.75x the previous increment; the last step uses this factor instead,
+	// making the top rank much harder to reach.  INI key: VeterancyFinalRankXPFactor (default 3.0).
+	Real m_veterancyFinalRankXPFactor;
 	Real m_defaultStructureRubbleHeight;	///< for rubbled structures, compress height to this if none specified
 
 	AsciiString m_shellMapName;				///< Holds the shell map name

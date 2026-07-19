@@ -87,6 +87,7 @@
 #include "GameLogic/Module/PowerPlantUpgrade.h"
 #include "GameLogic/Module/ProductionUpdate.h"
 #include "GameLogic/Module/RadarUpgrade.h"
+#include "GameLogic/Module/RespawnAtBuildingDie.h"
 #include "GameLogic/Module/RebuildHoleBehavior.h"
 #include "GameLogic/Module/SpawnBehavior.h"
 #include "GameLogic/Module/SpecialPowerModule.h"
@@ -3027,6 +3028,17 @@ void Object::scoreTheKill( const Object *victim )
 		controller->getScoreKeeper()->addObjectDestroyed(victim);
 		controller->addSkillPointsForKill(this, victim);
 		controller->doBountyForKill(this, victim);
+
+		// GeneralsX @feature Max-rank perk BOUNTY: a max-rank killer whose template opts in
+		// via MaxRankBounty = Yes pays its player VeterancyMaxRankBountyPercent (GameData,
+		// default 10%) of the victim's build cost.  Deterministic sim money, same award path
+		// as the GLA cash bounty.
+		if( getVeterancyLevel() >= LEVEL_LAST
+				&& getTemplate()->isMaxRankBounty()
+				&& TheGlobalData->m_veterancyMaxRankBountyPercent > 0.0f )
+		{
+			controller->doMaxRankBountyForKill(this, victim);
+		}
 	}
 
 	// Now handle experience, if we can gain any
@@ -3179,9 +3191,9 @@ void Object::onVeterancyLevelChanged( VeterancyLevel oldLevel, VeterancyLevel ne
 	if (body)
 		body->onVeterancyLevelChanged( oldLevel, newLevel, provideFeedback );
 
-	// GeneralsX @feature Extended veterancy: predicate-driven so all 8 levels are handled.
+	// GeneralsX @feature Extended veterancy: predicate-driven so all 9 levels are handled.
 	// Levels above HEROIC keep using the HEROIC weapon set (no new per-level weapon variants),
-	// and the HERO weapon bonus stays active with HERO2..HERO5 stacking cumulatively on top.
+	// and the HERO weapon bonus stays active with HERO2..HERO6 stacking cumulatively on top.
 	if (newLevel == LEVEL_VETERAN)
 		setWeaponSetFlag(WEAPONSET_VETERAN);
 	else
@@ -3231,6 +3243,27 @@ void Object::onVeterancyLevelChanged( VeterancyLevel oldLevel, VeterancyLevel ne
 		setWeaponBonusCondition(WEAPONBONUSCONDITION_HERO5);
 	else
 		clearWeaponBonusCondition(WEAPONBONUSCONDITION_HERO5);
+
+	if (newLevel >= LEVEL_HEROIC6)
+		setWeaponBonusCondition(WEAPONBONUSCONDITION_HERO6);
+	else
+		clearWeaponBonusCondition(WEAPONBONUSCONDITION_HERO6);
+
+	// GeneralsX @feature vision-scales-with-veterancy (opt-in via VisionBonusFromVeterancy).
+	// Apply the per-rank vision multiplier at rank-change time rather than per-frame (cleaner
+	// and off the hot shroud path). We recompute from the TEMPLATE base each time so it is
+	// idempotent and never compounds across promotions/demotions. Both the sight range and the
+	// shroud-clearing range scale by the same factor so acquisition and reveal stay in step.
+	if (getTemplate()->isVisionBonusFromVeterancy())
+	{
+		const Real visionFactor = TheGlobalData->m_visionBonus[newLevel];
+		Real baseVision = getTemplate()->friend_calcVisionRange();
+		Real baseShroud = getTemplate()->friend_calcShroudClearingRange();
+		if (baseShroud == -1.0f)
+			baseShroud = baseVision;	// same default the constructor uses
+		setVisionRange( baseVision * visionFactor );
+		setShroudClearingRange( baseShroud * visionFactor );
+	}
 
 	Bool doAnimation = provideFeedback
 		&& newLevel > oldLevel
@@ -4708,6 +4741,17 @@ void Object::onDie( DamageInfo *damageInfo )
 			die->onDie(damageInfo);
 	}
 
+	// GeneralsX @feature Max-rank perk DEATH-DEFIANCE (gated on GameData VeterancyMaxRankRespawn,
+	// default No): max-rank infantry/vehicles respawn at a friendly building via the same marker
+	// mechanics as RespawnAtBuildingDie.  Objects that carry that module are governed by it
+	// (findModule is protected, so the duplicate check lives here rather than in the helper).
+	if( TheGlobalData->m_veterancyMaxRankRespawn )
+	{
+		static NameKeyType key_RespawnAtBuildingDie = NAMEKEY( "RespawnAtBuildingDie" );
+		if( findModule( key_RespawnAtBuildingDie ) == nullptr )
+			RespawnAtBuildingDie::maybeGlobalMaxRankRespawn( this );
+	}
+
 	// When objects die we remove from the radar as they're really not interesting anymore
 	if( m_radarData )
 		TheRadar->removeObject( this );
@@ -4793,7 +4837,9 @@ void Object::onDie( DamageInfo *damageInfo )
 void Object::setWeaponBonusCondition(WeaponBonusConditionType wst)
 {
 	WeaponBonusConditionFlags oldCondition = m_weaponBonusCondition;
-	m_weaponBonusCondition |= (1 << wst);
+	// GeneralsX @feature Extended veterancy: HERO6 uses bit 31, so shift with an unsigned
+	// operand (1u) -- (1 << 31) on a signed int literal is undefined behavior.
+	m_weaponBonusCondition |= (1u << wst);
 
 	if( oldCondition != m_weaponBonusCondition )
 	{
@@ -4806,7 +4852,7 @@ void Object::setWeaponBonusCondition(WeaponBonusConditionType wst)
 void Object::clearWeaponBonusCondition(WeaponBonusConditionType wst)
 {
 	WeaponBonusConditionFlags oldCondition = m_weaponBonusCondition;
-	m_weaponBonusCondition &= ~(1 << wst);
+	m_weaponBonusCondition &= ~(1u << wst);
 
 	if( oldCondition != m_weaponBonusCondition )
 	{

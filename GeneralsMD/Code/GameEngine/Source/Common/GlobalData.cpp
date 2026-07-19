@@ -436,6 +436,31 @@ GlobalData* GlobalData::m_theOriginal = nullptr;
 	{ "HealthBonus_Heroic3",				INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_healthBonus[LEVEL_HEROIC3]) },
 	{ "HealthBonus_Heroic4",				INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_healthBonus[LEVEL_HEROIC4]) },
 	{ "HealthBonus_Heroic5",				INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_healthBonus[LEVEL_HEROIC5]) },
+	{ "HealthBonus_Heroic6",				INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_healthBonus[LEVEL_HEROIC6]) },
+	// GeneralsX @feature Extended veterancy: extrapolation multiplier for the final rank's
+	// (HEROIC6) missing ExperienceRequired step; ranks below it extrapolate at 1.75x.
+	{ "VeterancyFinalRankXPFactor",	INI::parseReal,					 nullptr,	offsetof( GlobalData, m_veterancyFinalRankXPFactor ) },
+	// GeneralsX @feature vision-scales-with-veterancy (opt-in per object via VisionBonusFromVeterancy).
+	{ "VisionBonus_Veteran",				INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_visionBonus[LEVEL_VETERAN]) },
+	{ "VisionBonus_Elite",					INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_visionBonus[LEVEL_ELITE]) },
+	{ "VisionBonus_Heroic",					INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_visionBonus[LEVEL_HEROIC]) },
+	{ "VisionBonus_Heroic2",				INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_visionBonus[LEVEL_HEROIC2]) },
+	{ "VisionBonus_Heroic3",				INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_visionBonus[LEVEL_HEROIC3]) },
+	{ "VisionBonus_Heroic4",				INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_visionBonus[LEVEL_HEROIC4]) },
+	{ "VisionBonus_Heroic5",				INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_visionBonus[LEVEL_HEROIC5]) },
+	{ "VisionBonus_Heroic6",				INI::parsePercentToReal, nullptr,	offsetof( GlobalData, m_visionBonus[LEVEL_HEROIC6]) },
+	// GeneralsX @feature Max-rank (HEROIC6) perks.  All keys optional; defaults keep every
+	// perk off or conservative, so configs without them load and play unchanged.
+	{ "VeterancyMaxRankRespawn",							INI::parseBool,						nullptr,	offsetof( GlobalData, m_veterancyMaxRankRespawn ) },
+	{ "VeterancyMaxRankRespawnHealthPercent",	INI::parsePercentToReal,	nullptr,	offsetof( GlobalData, m_veterancyMaxRankRespawnHealthPercent ) },
+	{ "VeterancyMaxRankRespawnAtKindOf",			KindOfMaskType::parseFromINI,	nullptr,	offsetof( GlobalData, m_veterancyMaxRankRespawnAtKindOf ) },
+	{ "VeterancyMaxRankRespawnMarkerName",		INI::parseAsciiString,		nullptr,	offsetof( GlobalData, m_veterancyMaxRankRespawnMarkerName ) },
+	{ "VeterancyMaxRankRegenPercent",					INI::parsePercentToReal,	nullptr,	offsetof( GlobalData, m_veterancyMaxRankRegenPercent ) },
+	{ "VeterancyMaxRankBountyPercent",				INI::parsePercentToReal,	nullptr,	offsetof( GlobalData, m_veterancyMaxRankBountyPercent ) },
+	{ "VeterancyMentorAura",									INI::parseBool,						nullptr,	offsetof( GlobalData, m_veterancyMentorAura ) },
+	{ "VeterancyMentorScanFrames",						INI::parseInt,						nullptr,	offsetof( GlobalData, m_veterancyMentorScanFrames ) },
+	{ "VeterancyMentorXP",										INI::parseInt,						nullptr,	offsetof( GlobalData, m_veterancyMentorXP ) },
+	{ "VeterancyMentorRadius",								INI::parseReal,						nullptr,	offsetof( GlobalData, m_veterancyMentorRadius ) },
 
 	{ "HumanSoloPlayerHealthBonus_Easy",					INI::parsePercentToReal,			nullptr,			offsetof( GlobalData, m_soloPlayerHealthBonusForDifficulty[PLAYER_HUMAN][DIFFICULTY_EASY] ) },
 	{ "HumanSoloPlayerHealthBonus_Normal",				INI::parsePercentToReal,			nullptr,			offsetof( GlobalData, m_soloPlayerHealthBonusForDifficulty[PLAYER_HUMAN][DIFFICULTY_NORMAL] ) },
@@ -1026,12 +1051,44 @@ GlobalData::GlobalData()
 
 	// GeneralsX @feature Extended veterancy: shipped GameData.ini only sets HealthBonus_ for
 	// Veteran/Elite/Heroic (vanilla 120/130/150%). Default the new ranks to a smooth
-	// extrapolation of that curve (+20% of base health per rank): 170/190/210/230%.
-	// Overridable via HealthBonus_Heroic2..HealthBonus_Heroic5 in GameData.ini.
+	// extrapolation of that curve (+20% of base health per rank): 170/190/210/230/250%.
+	// Overridable via HealthBonus_Heroic2..HealthBonus_Heroic6 in GameData.ini.
 	m_healthBonus[LEVEL_HEROIC2] = 1.7f;
 	m_healthBonus[LEVEL_HEROIC3] = 1.9f;
 	m_healthBonus[LEVEL_HEROIC4] = 2.1f;
 	m_healthBonus[LEVEL_HEROIC5] = 2.3f;
+	m_healthBonus[LEVEL_HEROIC6] = 2.5f;
+
+	// GeneralsX @feature Extended veterancy: the final rank (HEROIC6) is meant to be A LOT
+	// harder to reach.  When ExperienceRequired data does not define the last level, the
+	// extrapolated step to LEVEL_LAST is multiplied by this factor instead of the usual 1.75.
+	// Overridable via VeterancyFinalRankXPFactor in GameData.ini.
+	m_veterancyFinalRankXPFactor = 3.0f;
+
+	// GeneralsX @feature vision-scales-with-veterancy: modest +10% per rank curve, applied
+	// only to objects that opt in via VisionBonusFromVeterancy = Yes. Overridable per rank in
+	// GameData.ini (VisionBonus_Veteran .. VisionBonus_Heroic6). Regular is always 1.0.
+	m_visionBonus[LEVEL_REGULAR] = 1.0f;
+	m_visionBonus[LEVEL_VETERAN] = 1.1f;
+	m_visionBonus[LEVEL_ELITE]   = 1.2f;
+	m_visionBonus[LEVEL_HEROIC]  = 1.3f;
+	m_visionBonus[LEVEL_HEROIC2] = 1.4f;
+	m_visionBonus[LEVEL_HEROIC3] = 1.5f;
+	m_visionBonus[LEVEL_HEROIC4] = 1.6f;
+	m_visionBonus[LEVEL_HEROIC5] = 1.7f;
+	m_visionBonus[LEVEL_HEROIC6] = 1.8f;
+
+	// GeneralsX @feature Max-rank (HEROIC6) perk defaults: gates off, percents conservative.
+	m_veterancyMaxRankRespawn = FALSE;
+	m_veterancyMaxRankRespawnHealthPercent = 0.5f;
+	m_veterancyMaxRankRespawnAtKindOf = MAKE_KINDOF_MASK( KINDOF_COMMANDCENTER );
+	m_veterancyMaxRankRespawnMarkerName = "VeterancyRespawnMarker";
+	m_veterancyMaxRankRegenPercent = 0.03f;
+	m_veterancyMaxRankBountyPercent = 0.10f;
+	m_veterancyMentorAura = FALSE;
+	m_veterancyMentorScanFrames = 60;
+	m_veterancyMentorXP = 2;
+	m_veterancyMentorRadius = 150.0f;
 
 	for (i = 0; i < PLAYERTYPE_COUNT; ++i)
 	{
