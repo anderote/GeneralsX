@@ -5216,6 +5216,13 @@ void Object::look()
 //-------------------------------------------------------------------------------------------------
 void Object::unlook()
 {
+	// GeneralsX @bugfix: tombstone guard -- the SightingInfos are freed and
+	// nulled during teardown, and death/shroud bookkeeping can still reach a
+	// torn-down rider via a stale contain list (defense-in-depth alongside the
+	// processDamageToContained isDestroyed() skip).
+	if( m_partitionLastLook == nullptr )
+		return;
+
 	if( m_partitionLastLook->isInvalid() )
 	{
 		// Your very first action will be an unlook, so of course you haven't looked yet.  This is not an error

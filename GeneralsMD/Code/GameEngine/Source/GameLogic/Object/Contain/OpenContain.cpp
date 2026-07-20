@@ -1518,6 +1518,14 @@ void OpenContain::processDamageToContainedInternal(Object* const* objects, size_
 	{
 		Object* object = objects[i];
 
+		// GeneralsX @bugfix: deferred destroyObject teardown can leave dead riders
+		// in the contain list; damaging one runs death/shroud bookkeeping on an
+		// object whose SightingInfo is already freed (SIGSEGV in Object::unlook,
+		// crashed live 2026-07-19 21:26). Same tombstone family as
+		// removeFromContainViaIterator's isDestroyed() guard.
+		if (object == nullptr || object->isDestroyed())
+			continue;
+
 		// Calculate the damage to be inflicted on each unit.
 		Real damage = object->getBodyModule()->getMaxHealth() * percentDamage;
 
