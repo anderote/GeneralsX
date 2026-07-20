@@ -4980,6 +4980,14 @@ void Object::onPartitionCellChange()
 //-------------------------------------------------------------------------------------------------
 void Object::handlePartitionCellMaintenance()
 {
+	// GeneralsX @bugfix: tombstone chokepoint -- collision/death flows can reach
+	// partition bookkeeping on a rider whose teardown already freed its
+	// SightingInfos (all four are allocated and freed together; crashed live
+	// twice on 2026-07-19 via processDamageToContained->unlook and
+	// OpenContain::onCollide->handleShroud). Guard every entry path at once.
+	if( isDestroyed() || m_partitionLastShroud == nullptr )
+		return;
+
 	handleShroud();
 	handleValueMap();
 	handleThreatMap();
@@ -5118,6 +5126,10 @@ void Object::removeThreat()
 //-------------------------------------------------------------------------------------------------
 void Object::look()
 {
+	// GeneralsX @bugfix: tombstone guard, same family as unlook/handlePartitionCellMaintenance.
+	if( m_partitionLastLook == nullptr )
+		return;
+
 	if( ! m_partitionLastLook->isInvalid() )
 	{
 		DEBUG_CRASH( ("An Object is looking, but hasn't unlooked the last one.") );
