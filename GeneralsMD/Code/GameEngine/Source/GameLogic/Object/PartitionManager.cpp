@@ -2561,6 +2561,13 @@ void PartitionContactList::processContactList()
 		Object* obj = cd->m_obj->getObject();
 		Object* other = cd->m_other->getObject();
 
+		// GeneralsX @bugfix: contacts are queued earlier in the frame; either
+		// object can have started deferred teardown by processing time (three
+		// live SIGSEGVs on 2026-07-19: null SightingInfo/behavior arrays reached
+		// through onCollide flows). Skip dead pairs before any dispatch.
+		if( obj == nullptr || other == nullptr || obj->isDestroyed() || other->isDestroyed() )
+			continue;
+
 		if( obj->getStatusBits().test( OBJECT_STATUS_NO_COLLISIONS ) ||
 				other->getStatusBits().test( OBJECT_STATUS_NO_COLLISIONS ) )
 			continue;

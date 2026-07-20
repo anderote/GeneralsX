@@ -2469,6 +2469,12 @@ void Object::updateTriggerAreaFlags()
 //-------------------------------------------------------------------------------------------------
 void Object::onCollide( Object *other, const Coord3D *loc, const Coord3D *normal )
 {
+	// GeneralsX @bugfix: tombstone guard, same deferred-teardown family as
+	// onDisabledEdge/handlePartitionCellMaintenance -- a stale contact can
+	// deliver a collide to a torn-down object whose module array is gone.
+	if( isDestroyed() || m_behaviors == nullptr )
+		return;
+
 	for (BehaviorModule** m = m_behaviors; *m; ++m)
 	{
 		CollideModuleInterface* collide = (*m)->getCollide();
