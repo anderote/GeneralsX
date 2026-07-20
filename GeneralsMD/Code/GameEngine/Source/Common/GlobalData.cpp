@@ -467,6 +467,9 @@ GlobalData* GlobalData::m_theOriginal = nullptr;
 	// GeneralsX @feature Hard-AI aggression scales (optional; 1.0 = vanilla behavior).
 	{ "AIHardTeamSizeScale",									INI::parseReal,						nullptr,	offsetof( GlobalData, m_aiHardTeamSizeScale ) },
 	{ "AIHardProductionDelayScale",						INI::parseReal,						nullptr,	offsetof( GlobalData, m_aiHardProductionDelayScale ) },
+	{ "AIHardStartingVeterancy",							INI::parseIndexList,			TheVeterancyNames,	offsetof( GlobalData, m_aiHardStartingVeterancy ) },
+	{ "AIHardReinforceSeconds",								INI::parseReal,						nullptr,	offsetof( GlobalData, m_aiHardReinforceSeconds ) },
+	{ "AIHardReinforceBudget",								INI::parseInt,						nullptr,	offsetof( GlobalData, m_aiHardReinforceBudget ) },
 	// GeneralsX @feature in-world unit hover tooltips (client display only).
 	{ "ShowUnitHoverTooltips",								INI::parseBool,						nullptr,	offsetof( GlobalData, m_showUnitHoverTooltips ) },
 	{ "UnitHoverTooltipDelayMS",							INI::parseInt,						nullptr,	offsetof( GlobalData, m_unitHoverTooltipDelayMS ) },
@@ -1112,6 +1115,9 @@ GlobalData::GlobalData()
 	// GeneralsX @feature Hard-AI aggression scale defaults: 1.0 = vanilla.
 	m_aiHardTeamSizeScale = 1.0f;
 	m_aiHardProductionDelayScale = 1.0f;
+	m_aiHardStartingVeterancy = LEVEL_REGULAR;	// GeneralsX @feature hard-AI produced-unit rank, off by default
+	m_aiHardReinforceSeconds = 0.0f;						// GeneralsX @feature hard-AI free reinforcements, off by default
+	m_aiHardReinforceBudget = 4000;
 
 	// GeneralsX @feature unit hover tooltip defaults: off, 400 ms dwell.
 	m_showUnitHoverTooltips = FALSE;

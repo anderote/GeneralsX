@@ -227,6 +227,10 @@ protected:
 	virtual void xfer( Xfer *xfer ) override;
 	virtual void loadPostProcess() override;
 
+	// GeneralsX @feature AIHardReinforceSeconds: periodic free reinforcement squad for hard
+	// computer players, spawned at the base and sent to attack (see AIPlayer.cpp).
+	void doHardReinforcements();
+
 	virtual void doBaseBuilding();
 	virtual void checkReadyTeams();
 	virtual void checkQueuedTeams();

@@ -45,7 +45,9 @@
 #include "Common/Xfer.h"
 #include "GameClient/ControlBar.h"
 #include "GameClient/TerrainVisual.h"
+#include "GameLogic/ExperienceTracker.h"
 #include "GameLogic/GameLogic.h"
+#include "GameLogic/Weapon.h"	// GeneralsX @feature for NO_MAX_SHOTS_LIMIT
 #include "GameLogic/Object.h"
 #include "GameLogic/AIPlayer.h"
 #include "GameLogic/SidesList.h"
@@ -1071,6 +1073,20 @@ void AIPlayer::onUnitProduced( Object *factory, Object *unit )
 		return;
 	}
 
+	// GeneralsX @feature AIHardStartingVeterancy: units produced by a HARD computer player
+	// enter play at the configured rank (GameData, default REGULAR = no effect).  Mirrors the
+	// VeterancyGainCreate idiom (ExperienceTracker::setVeterancyLevel).  Units only, never
+	// structures; deterministic sim side.
+	if( TheGlobalData->m_aiHardStartingVeterancy > LEVEL_REGULAR
+			&& getAIDifficulty() == DIFFICULTY_HARD
+			&& unit != nullptr
+			&& !unit->isKindOf( KINDOF_STRUCTURE ) )
+	{
+		ExperienceTracker *xpTracker = unit->getExperienceTracker();
+		if( xpTracker != nullptr )
+			xpTracker->setVeterancyLevel( TheGlobalData->m_aiHardStartingVeterancy, FALSE );
+	}
+
 	for (DLINK_ITERATOR<TeamInQueue> iter = iterate_TeamBuildQueue(); !iter.done(); iter.advance())
 	{
 		TeamInQueue *team = iter.cur();
@@ -1470,15 +1486,18 @@ Object *AIPlayer::findFactory(const ThingTemplate *thing, Bool busyOK)
 // ------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
 // GeneralsX @feature Hard-AI aggression scales.  Gated to computer players at HARD difficulty;
-// everyone else gets exactly 1.0.  Clamped to [0.25, 4.0] so degenerate INI values cannot stall
-// or explode the AI.  Consumed (not parsed) per player: team templates stay shared/unmodified.
+// everyone else gets exactly 1.0.  Clamped to [0.1, 8.0] so degenerate INI values cannot stall
+// or explode the AI.  Extremes are safe at every consumption site: team counts go through
+// REAL_TO_INT_CEIL (8x of a 10-unit entry = 80 WorkOrder units, no fixed caps), and both delay
+// timers go through REAL_TO_INT_CEIL of a positive value, so 0.1x of any nonzero TeamSeconds /
+// StructureSeconds still yields >= 1 frame.  Consumed (not parsed) per player.
 //-------------------------------------------------------------------------------------------------
 static Real clampHardAIScale( Real scale )
 {
-	if( scale < 0.25f )
-		return 0.25f;
-	if( scale > 4.0f )
-		return 4.0f;
+	if( scale < 0.1f )
+		return 0.1f;
+	if( scale > 8.0f )
+		return 8.0f;
 	return scale;
 }
 
@@ -3105,6 +3124,196 @@ void AIPlayer::doUpgradesAndSkills()
  * Perform computer-controlled player AI
  */
 //DECLARE_PERF_TIMER(AIPlayer_update)
+//-------------------------------------------------------------------------------------------------
+// GeneralsX @feature AIHardReinforceSeconds/AIHardReinforceBudget: every interval, an active HARD
+// computer player receives a free reinforcement squad near its base and sends it at the nearest
+// enemy structure.  MECHANISM: reuses the scb team-prototype machinery (same spawn idiom as the
+// CREATE_REINFORCEMENT_TEAM script action, ScriptActions::doCreateReinforcements) -- we pick the
+// player's most expensive non-singleton team template that fits the budget, instantiate it as a
+// real active Team via TheTeamFactory, and attack-move it as an AIGroup, so the squad is always
+// faction-correct and behaves like any other AI attack team.  Frame-count driven (stipend idiom),
+// stateless (no xfer changes), deterministic sim side.
+//-------------------------------------------------------------------------------------------------
+struct HardReinforceAnchorData
+{
+	Object *m_commandCenter;
+	Object *m_anyStructure;
+};
+
+static void findHardReinforceAnchorProc( Object *obj, void *userData )
+{
+	HardReinforceAnchorData *d = (HardReinforceAnchorData *)userData;
+	if( obj->isEffectivelyDead()
+			|| obj->testStatus( OBJECT_STATUS_UNDER_CONSTRUCTION )
+			|| obj->testStatus( OBJECT_STATUS_SOLD ) )
+		return;
+	if( !obj->isKindOf( KINDOF_STRUCTURE ) )
+		return;
+	if( d->m_anyStructure == nullptr )
+		d->m_anyStructure = obj;
+	if( d->m_commandCenter == nullptr && obj->isKindOf( KINDOF_COMMANDCENTER ) )
+		d->m_commandCenter = obj;
+}
+
+void AIPlayer::doHardReinforcements()
+{
+	if( TheGlobalData->m_aiHardReinforceSeconds <= 0.0f )
+		return;
+	if( getAIDifficulty() != DIFFICULTY_HARD )
+		return;
+	if( m_player == nullptr || m_player->getPlayerType() != PLAYER_COMPUTER || !m_player->isPlayerActive() )
+		return;
+
+	const UnsignedInt frame = TheGameLogic->getFrame();
+	UnsignedInt intervalFrames = (UnsignedInt)(TheGlobalData->m_aiHardReinforceSeconds * LOGICFRAMES_PER_SECOND);
+	if( intervalFrames < 1 )
+		intervalFrames = 1;
+	if( frame == 0 || (frame % intervalFrames) != 0 )
+		return;
+
+	// anchor the drop at our command center (fallback: any finished structure)
+	HardReinforceAnchorData anchorData;
+	anchorData.m_commandCenter = nullptr;
+	anchorData.m_anyStructure = nullptr;
+	m_player->iterateObjects( findHardReinforceAnchorProc, &anchorData );
+	Object *anchor = anchorData.m_commandCenter != nullptr ? anchorData.m_commandCenter : anchorData.m_anyStructure;
+	if( anchor == nullptr )
+		return;	// no base left: no reinforcements
+
+	// pick our most expensive non-singleton team template that fits the budget (fallback: the
+	// cheapest one, so a huge template list with tiny budget still fights).  Player team
+	// prototype list order is sim state, so this choice is deterministic and peer-identical.
+	Int budget = TheGlobalData->m_aiHardReinforceBudget;
+	if( budget < 1 )
+		budget = 1;
+	const TeamPrototype *bestProto = nullptr;
+	Int bestCost = -1;
+	const TeamPrototype *cheapestProto = nullptr;
+	Int cheapestCost = 0x7fffffff;
+	for( Player::PlayerTeamList::const_iterator it = m_player->getPlayerTeams()->begin();
+			 it != m_player->getPlayerTeams()->end(); ++it )
+	{
+		const TeamPrototype *proto = *it;
+		if( proto == nullptr || proto->getIsSingleton() )
+			continue;
+		const TeamTemplateInfo *info = proto->getTemplateInfo();
+		if( info == nullptr || info->m_numUnitsInfo <= 0 )
+			continue;
+		Int cost = 0;
+		Bool anyUnits = false;
+		for( Int i = 0; i < info->m_numUnitsInfo; ++i )
+		{
+			const ThingTemplate *thing = TheThingFactory->findTemplate( info->m_unitsInfo[i].unitThingName );
+			if( thing == nullptr || info->m_unitsInfo[i].maxUnits <= 0 )
+				continue;
+			anyUnits = true;
+			cost += thing->calcCostToBuild( m_player ) * info->m_unitsInfo[i].maxUnits;
+		}
+		if( !anyUnits || cost <= 0 )
+			continue;
+		if( cost <= budget && cost > bestCost )
+		{
+			bestCost = cost;
+			bestProto = proto;
+		}
+		if( cost < cheapestCost )
+		{
+			cheapestCost = cost;
+			cheapestProto = proto;
+		}
+	}
+	if( bestProto == nullptr )
+		bestProto = cheapestProto;
+	if( bestProto == nullptr )
+		return;
+
+	// nearest enemy structure = the attack destination (fallback: no order, units just guard)
+	const Coord3D basePos = *anchor->getPosition();
+	const Object *target = nullptr;
+	Real targetDistSq = 0.0f;
+	for( Object *obj = TheGameLogic->getFirstObject(); obj; obj = obj->getNextObject() )
+	{
+		if( obj->isEffectivelyDead() || obj->isDestroyed() )
+			continue;
+		if( !obj->isKindOf( KINDOF_STRUCTURE ) )
+			continue;
+		if( m_player->getRelationship( obj->getTeam() ) != ENEMIES )
+			continue;
+		const Coord3D *p = obj->getPosition();
+		Real dx = p->x - basePos.x;
+		Real dy = p->y - basePos.y;
+		Real distSq = dx * dx + dy * dy;
+		if( target == nullptr || distSq < targetDistSq )
+		{
+			target = obj;
+			targetDistSq = distSq;
+		}
+	}
+
+	// instantiate the prototype as a real team (same idiom as doCreateReinforcements), capping
+	// the spawn once the cumulative unit cost exceeds the budget
+	Team *theTeam = TheTeamFactory->createInactiveTeam( bestProto->getName() );
+	if( theTeam == nullptr )
+		return;
+
+	const TeamTemplateInfo *info = bestProto->getTemplateInfo();
+	const Real ring = anchor->getGeometryInfo().getBoundingCircleRadius();
+	Coord3D origin = basePos;
+	origin.x += ring;
+	Int spawnedCost = 0;
+	Int spawnedCount = 0;
+	Coord3D pos = origin;
+	for( Int i = 0; i < info->m_numUnitsInfo && spawnedCost <= budget; ++i )
+	{
+		const ThingTemplate *thing = TheThingFactory->findTemplate( info->m_unitsInfo[i].unitThingName );
+		if( thing == nullptr )
+			continue;
+		Object *obj = nullptr;
+		for( Int j = 0; j < info->m_unitsInfo[i].maxUnits; ++j )
+		{
+			obj = TheThingFactory->newObject( thing, theTeam );
+			if( obj == nullptr )
+				break;
+			pos.x = origin.x + ring * 0.25f + 2.25f * j * obj->getGeometryInfo().getMajorRadius();
+			pos.z = TheTerrainLogic->getGroundHeight( pos.x, pos.y );
+			obj->setPosition( &pos );
+			obj->setOrientation( 0.0f );
+			++spawnedCount;
+			spawnedCost += thing->calcCostToBuild( m_player );
+			if( spawnedCost > budget && spawnedCount >= 1 )
+				break;
+		}
+		if( obj != nullptr )
+			pos.y += 2.0f * obj->getGeometryInfo().getMajorRadius();
+		origin.y = pos.y;
+	}
+
+	if( spawnedCount == 0 )
+	{
+		if( !theTeam->getPrototype()->getIsSingleton() )
+			deleteInstance( theTeam );
+		return;
+	}
+
+	theTeam->setActive();
+
+	if( target != nullptr )
+	{
+		AIGroupPtr theGroup = TheAI->createGroup();
+		if( theGroup )
+		{
+#if RETAIL_COMPATIBLE_AIGROUP
+			theTeam->getTeamAsAIGroup( theGroup );
+#else
+			theTeam->getTeamAsAIGroup( theGroup.Peek() );
+#endif
+			Coord3D targetPos = *target->getPosition();
+			theGroup->groupAttackMoveToPosition( &targetPos, NO_MAX_SHOTS_LIMIT, CMD_FROM_AI );
+		}
+	}
+}
+
+//----------------------------------------------------------------------------------------------------------
 void AIPlayer::update()
 {
 	//USE_PERF_TIMER(AIPlayer_update)
@@ -3120,6 +3329,8 @@ void AIPlayer::update()
 	doUpgradesAndSkills(); // See if it's time to build an upgrade or buy a skill.
 
 	updateBridgeRepair(); // Handle any bridge repairs.
+
+	doHardReinforcements(); // GeneralsX @feature free hard-AI reinforcements (no-op unless enabled).
 
 }
 
