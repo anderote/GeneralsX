@@ -707,7 +707,30 @@ UpdateSleepTime ProductionUpdate::update()
 	// how many total logic frames does it take to produce this unit
 	Int totalProductionFrames;
 	if( production->m_type == PRODUCTION_UNIT )
+	{
 		totalProductionFrames = production->m_objectToProduce->calcTimeToBuild( player );
+
+		// GeneralsX @feature AIHardUnitBuildTimeScale: factory-produced UNITS of a HARD computer
+		// player build faster (0.25 = 4x throughput), so money can actually buy throughput and
+		// scaled teams fill on schedule.  Units only: dozer-built structures and upgrade research
+		// never take this path.  Clamped to [0.1, 1.0]; deterministic per producing player.
+		if( player != nullptr
+				&& player->getPlayerType() == PLAYER_COMPUTER
+				&& player->getPlayerDifficulty() == DIFFICULTY_HARD )
+		{
+			Real buildScale = TheGlobalData->m_aiHardUnitBuildTimeScale;
+			if( buildScale < 0.1f )
+				buildScale = 0.1f;
+			if( buildScale > 1.0f )
+				buildScale = 1.0f;
+			if( buildScale < 1.0f )
+			{
+				totalProductionFrames = REAL_TO_INT_CEIL( totalProductionFrames * buildScale );
+				if( totalProductionFrames < 1 )
+					totalProductionFrames = 1;
+			}
+		}
+	}
 	else
 		totalProductionFrames = production->m_upgradeToResearch->calcTimeToBuild( player );
 

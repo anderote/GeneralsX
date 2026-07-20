@@ -1533,20 +1533,6 @@ Int AIPlayer::scaleTeamMaxUnits( Int maxUnits ) const
 	return scaled;
 }
 
-//-------------------------------------------------------------------------------------------------
-// floor for min counts, but never below the authored minimum (shrinking scales only trim max)
-//-------------------------------------------------------------------------------------------------
-Int AIPlayer::scaleTeamMinUnits( Int minUnits ) const
-{
-	const Real scale = getHardTeamSizeScale();
-	if( scale == 1.0f || minUnits <= 0 )
-		return minUnits;
-	Int scaled = REAL_TO_INT_FLOOR( minUnits * scale );
-	if( scaled < minUnits )
-		scaled = minUnits;
-	return scaled;
-}
-
 Bool AIPlayer::isPossibleToBuildTeam( TeamPrototype *proto, Bool requireIdleFactory, Bool &notEnoughMoney)
 {
 	/* Make sure we have at least one idle factory, and factories for all unit types. */
@@ -1567,8 +1553,7 @@ Bool AIPlayer::isPossibleToBuildTeam( TeamPrototype *proto, Bool requireIdleFact
 				// Found an idle factory.
 				anyIdle = true;
 			}
-			// GeneralsX @feature AIHardTeamSizeScale: budget for the scaled team size
-			cost += thingCost * ((scaleTeamMaxUnits(unitInfo[i].maxUnits)+scaleTeamMinUnits(unitInfo[i].minUnits))/2.0f);
+			cost += thingCost * ((unitInfo[i].maxUnits+unitInfo[i].minUnits)/2.0f);
 		}
 	}
 	cost *= TheAI->getAiData()->m_teamResourcesToBuild;
@@ -2574,11 +2559,12 @@ void AIPlayer::buildSpecificAITeam( TeamPrototype *teamProto, Bool priorityBuild
 			const ThingTemplate *thing = TheThingFactory->findTemplate( unitInfo[i].unitThingName );
 			if (thing)
 			{
-				// GeneralsX @feature AIHardTeamSizeScale: scaled optional headroom (never negative)
-				int scaledMin = scaleTeamMinUnits(unitInfo[i].minUnits);
-				int scaledMax = scaleTeamMaxUnits(unitInfo[i].maxUnits);
-				if (scaledMax < scaledMin) scaledMax = scaledMin;
-				int count = scaledMax-scaledMin;
+				// GeneralsX @feature AIHardTeamSizeScale: build-queue WorkOrders deliberately use the
+				// AUTHORED counts -- TeamInQueue::isAllBuilt/isMinimumBuilt gate dispatch (and the
+				// disband-on-expiry path!) on these, so scaling them stalls or kills attacks.  The
+				// extra size arrives via recruiting at creation and post-dispatch reinforcement
+				// (selectTeamToReinforce), which use the scaled maximum.
+				int count = unitInfo[i].maxUnits-unitInfo[i].minUnits;
 				if (count>0) {
 					WorkOrder *order = newInstance(WorkOrder);
 					order->m_thing = thing;
@@ -2596,8 +2582,7 @@ void AIPlayer::buildSpecificAITeam( TeamPrototype *teamProto, Bool priorityBuild
 			const ThingTemplate *thing = TheThingFactory->findTemplate( unitInfo[i].unitThingName );
 			if (thing)
 			{
-				// GeneralsX @feature AIHardTeamSizeScale: scaled required core of the team
-				int count = scaleTeamMinUnits(unitInfo[i].minUnits);
+				int count = unitInfo[i].minUnits;
 				WorkOrder *order = newInstance(WorkOrder);
 				order->m_thing = thing;
 				order->m_factoryID = INVALID_ID;

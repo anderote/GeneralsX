@@ -468,6 +468,7 @@ GlobalData* GlobalData::m_theOriginal = nullptr;
 	{ "AIHardTeamSizeScale",									INI::parseReal,						nullptr,	offsetof( GlobalData, m_aiHardTeamSizeScale ) },
 	{ "AIHardProductionDelayScale",						INI::parseReal,						nullptr,	offsetof( GlobalData, m_aiHardProductionDelayScale ) },
 	{ "AIHardStartingVeterancy",							INI::parseIndexList,			TheVeterancyNames,	offsetof( GlobalData, m_aiHardStartingVeterancy ) },
+	{ "AIHardUnitBuildTimeScale",							INI::parseReal,						nullptr,	offsetof( GlobalData, m_aiHardUnitBuildTimeScale ) },
 	{ "AIHardReinforceSeconds",								INI::parseReal,						nullptr,	offsetof( GlobalData, m_aiHardReinforceSeconds ) },
 	{ "AIHardReinforceBudget",								INI::parseInt,						nullptr,	offsetof( GlobalData, m_aiHardReinforceBudget ) },
 	// GeneralsX @feature in-world unit hover tooltips (client display only).
@@ -1116,6 +1117,7 @@ GlobalData::GlobalData()
 	m_aiHardTeamSizeScale = 1.0f;
 	m_aiHardProductionDelayScale = 1.0f;
 	m_aiHardStartingVeterancy = LEVEL_REGULAR;	// GeneralsX @feature hard-AI produced-unit rank, off by default
+	m_aiHardUnitBuildTimeScale = 1.0f;					// GeneralsX @feature hard-AI factory throughput, off by default
 	m_aiHardReinforceSeconds = 0.0f;						// GeneralsX @feature hard-AI free reinforcements, off by default
 	m_aiHardReinforceBudget = 4000;
 

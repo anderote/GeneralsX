@@ -396,6 +396,7 @@ public:
 	Real m_aiHardTeamSizeScale;												///< scales AI team template unit counts (AIHardTeamSizeScale, default 1.0)
 	Real m_aiHardProductionDelayScale;								///< scales AI team/structure build delays (AIHardProductionDelayScale, default 1.0; 0.5 = twice the tempo)
 	VeterancyLevel m_aiHardStartingVeterancy;					///< units produced by hard AI enter play at this rank (AIHardStartingVeterancy, default REGULAR = off)
+	Real m_aiHardUnitBuildTimeScale;									///< scales factory UNIT build time for hard AI (AIHardUnitBuildTimeScale, default 1.0, clamp [0.1, 1.0]; 0.25 = 4x throughput; structures/dozers unaffected)
 	Real m_aiHardReinforceSeconds;										///< free hard-AI reinforcement interval (AIHardReinforceSeconds, default 0 = off)
 	Int m_aiHardReinforceBudget;											///< approximate money value of each reinforcement squad (AIHardReinforceBudget, default 4000)
 
