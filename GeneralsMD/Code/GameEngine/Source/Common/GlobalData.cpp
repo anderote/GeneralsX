@@ -471,6 +471,7 @@ GlobalData* GlobalData::m_theOriginal = nullptr;
 	{ "AIHardUnitBuildTimeScale",							INI::parseReal,						nullptr,	offsetof( GlobalData, m_aiHardUnitBuildTimeScale ) },
 	{ "AIHardReinforceSeconds",								INI::parseReal,						nullptr,	offsetof( GlobalData, m_aiHardReinforceSeconds ) },
 	{ "AIHardReinforceBudget",								INI::parseInt,						nullptr,	offsetof( GlobalData, m_aiHardReinforceBudget ) },
+	{ "AIHardMaxUnits",												INI::parseInt,						nullptr,	offsetof( GlobalData, m_aiHardMaxUnits ) },
 	// GeneralsX @feature in-world unit hover tooltips (client display only).
 	{ "ShowUnitHoverTooltips",								INI::parseBool,						nullptr,	offsetof( GlobalData, m_showUnitHoverTooltips ) },
 	{ "UnitHoverTooltipDelayMS",							INI::parseInt,						nullptr,	offsetof( GlobalData, m_unitHoverTooltipDelayMS ) },
@@ -1120,6 +1121,7 @@ GlobalData::GlobalData()
 	m_aiHardUnitBuildTimeScale = 1.0f;					// GeneralsX @feature hard-AI factory throughput, off by default
 	m_aiHardReinforceSeconds = 0.0f;						// GeneralsX @feature hard-AI free reinforcements, off by default
 	m_aiHardReinforceBudget = 4000;
+	m_aiHardMaxUnits = 0;												// GeneralsX @feature hard-AI unit cap, off by default
 
 	// GeneralsX @feature unit hover tooltip defaults: off, 400 ms dwell.
 	m_showUnitHoverTooltips = FALSE;

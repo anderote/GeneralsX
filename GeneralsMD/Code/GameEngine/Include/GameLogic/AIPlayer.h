@@ -189,6 +189,11 @@ public:
 	Bool getBaseCenter(Coord3D *pos) const {*pos = m_baseCenter; return m_baseCenterSet;}
 	/// Difficulty level for this player.
 	GameDifficulty getAIDifficulty() const;
+
+	// GeneralsX @feature AIHardMaxUnits: cached live-unit-count cap check (recounts at most
+	// every 30 frames via Player::iterateObjects; no per-frame full scans).  Public: consumed
+	// by Player::isHardAIUnitCapReached for the production/stipend gates.
+	Bool isHardUnitCapReached();
 	void setAIDifficulty(GameDifficulty difficulty) {m_difficulty = difficulty;}
 	void buildBySupplies(Int minimumCash, const AsciiString &thingName ); ///< Builds a building by supplies.
 	void buildSpecificBuildingNearestTeam( const AsciiString &thingName, const Team *team );
@@ -281,6 +286,8 @@ protected:
 	Int			m_teamTimer;							///< Counts out the time between teams, as specified by ini.
 	Int			m_structureTimer;					///< Counts out the time between structures, as specified by ini.
 	Int			m_teamSeconds;						///< How many seconds to delay between teams.
+	Int			m_hardUnitCountCache;			///< GeneralsX @feature AIHardMaxUnits cached live-unit count
+	UnsignedInt	m_hardUnitCountFrame;	///< GeneralsX @feature frame of last recount (0xFFFFFFFF = never)
 
 	Int			m_buildDelay;							///< Delay for building in case we are resource or prereq. limited.
 	Int			m_teamDelay;							///< Delay for teams in case we are resource or factory prereq. limited.

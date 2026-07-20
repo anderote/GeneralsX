@@ -3853,6 +3853,8 @@ static void updateAICashInjection( UnsignedInt frame )
 			continue;	// no stipend for dead or observing players
 		if( player->getPlayerDifficulty() != DIFFICULTY_HARD )
 			continue;
+		if( player->isHardAIUnitCapReached() )
+			continue;	// GeneralsX @feature AIHardMaxUnits: no stipend while over the population cap
 
 		const UnsignedInt amount = (UnsignedInt)TheGlobalData->m_aiCashInjectionHard;
 		player->getMoney()->deposit( amount, FALSE );

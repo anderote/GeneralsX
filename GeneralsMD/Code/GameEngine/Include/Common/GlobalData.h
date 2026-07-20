@@ -398,6 +398,7 @@ public:
 	VeterancyLevel m_aiHardStartingVeterancy;					///< units produced by hard AI enter play at this rank (AIHardStartingVeterancy, default REGULAR = off)
 	Real m_aiHardUnitBuildTimeScale;									///< scales factory UNIT build time for hard AI (AIHardUnitBuildTimeScale, default 1.0, clamp [0.1, 1.0]; 0.25 = 4x throughput; structures/dozers unaffected)
 	Real m_aiHardReinforceSeconds;										///< free hard-AI reinforcement interval (AIHardReinforceSeconds, default 0 = off)
+	Int m_aiHardMaxUnits;															///< live-unit cap for hard AI players; pauses unit production/stipend/reinforcements at the cap (AIHardMaxUnits, default 0 = uncapped)
 	Int m_aiHardReinforceBudget;											///< approximate money value of each reinforcement squad (AIHardReinforceBudget, default 4000)
 
 	// GeneralsX @feature in-world unit hover tooltips (client display only).

@@ -1240,6 +1240,14 @@ void Player::becomingLocalPlayer(Bool yes)
 //-------------------------------------------------------------------------------------------------
 /** Is this player a skirmish ai player? */
 //-------------------------------------------------------------------------------------------------
+// GeneralsX @feature AIHardMaxUnits: delegate to the AI brain's cached live-unit count.
+//=============================================================================
+Bool Player::isHardAIUnitCapReached() const
+{
+	return m_ai != nullptr && m_ai->isHardUnitCapReached();
+}
+
+//=============================================================================
 Bool Player::isSkirmishAIPlayer()
 {
 	return m_ai ? m_ai->isSkirmishAI() : false;

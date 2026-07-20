@@ -701,6 +701,16 @@ UpdateSleepTime ProductionUpdate::update()
 
 	}
 
+	// GeneralsX @feature AIHardMaxUnits: a hard computer player at its live-unit cap pauses
+	// factory UNIT production (progress freezes; nothing is cancelled) until the population
+	// drops below the cap.  Upgrades keep researching normally.
+	if( production->m_type == PRODUCTION_UNIT
+			&& player != nullptr
+			&& player->isHardAIUnitCapReached() )
+	{
+		return UPDATE_SLEEP_NONE;
+	}
+
 	// increase the frames we've been under production for
 	production->m_framesUnderConstruction++;
 

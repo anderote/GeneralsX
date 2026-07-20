@@ -242,6 +242,10 @@ public:
 	Money *getMoney();
 	const Money *getMoney() const;
 
+	// GeneralsX @feature AIHardMaxUnits: true when this is a hard computer player whose live
+	// unit count has reached the cap (see AIPlayer::isHardUnitCapReached).  False for humans.
+	Bool isHardAIUnitCapReached() const;
+
 	// GeneralsX @feature Team-pooled money plumbing (called by PlayerList / load path)
 	void computeMoneyPoolAnchor();					///< freeze the anchor from current mutual alliances
 	void friend_foldMoneyIntoPoolAnchor();	///< move this player's starting credits into the anchor pool

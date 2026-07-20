@@ -86,6 +86,8 @@ m_dozerQueuedForRepair(false),
 m_supplySourceAttackCheckFrame(0),
 m_attackedSupplyCenter(INVALID_ID),
 m_teamSeconds(10),
+m_hardUnitCountCache(0),
+m_hardUnitCountFrame(0xFFFFFFFF),
 m_curWarehouseID(INVALID_ID)
 {
 	m_frameLastBuildingBuilt = TheGameLogic->getFrame();
@@ -3119,6 +3121,46 @@ void AIPlayer::doUpgradesAndSkills()
 // faction-correct and behaves like any other AI attack team.  Frame-count driven (stipend idiom),
 // stateless (no xfer changes), deterministic sim side.
 //-------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
+// GeneralsX @feature AIHardMaxUnits: cached live-unit count for hard computer players.  Counts
+// this player's living non-structure objects (projectiles/inert excluded) via iterateObjects,
+// refreshed at most every 30 frames -- no per-frame full scans.  Cache is xfer'd (v2) so saved
+// and live peers agree between refresh boundaries.
+//-------------------------------------------------------------------------------------------------
+static void countHardLiveUnitsProc( Object *obj, void *userData )
+{
+	Int *count = (Int *)userData;
+	if( obj->isEffectivelyDead() || obj->isDestroyed() )
+		return;
+	if( obj->isKindOf( KINDOF_STRUCTURE )
+			|| obj->isKindOf( KINDOF_PROJECTILE )
+			|| obj->isKindOf( KINDOF_INERT ) )
+		return;
+	(*count)++;
+}
+
+Bool AIPlayer::isHardUnitCapReached()
+{
+	const Int cap = TheGlobalData != nullptr ? TheGlobalData->m_aiHardMaxUnits : 0;
+	if( cap <= 0 )
+		return false;	// uncapped
+	if( getAIDifficulty() != DIFFICULTY_HARD )
+		return false;
+	if( m_player == nullptr || m_player->getPlayerType() != PLAYER_COMPUTER )
+		return false;
+
+	const UnsignedInt frame = TheGameLogic->getFrame();
+	if( m_hardUnitCountFrame == 0xFFFFFFFF || frame < m_hardUnitCountFrame
+			|| frame - m_hardUnitCountFrame >= 30 )
+	{
+		Int count = 0;
+		m_player->iterateObjects( countHardLiveUnitsProc, &count );
+		m_hardUnitCountCache = count;
+		m_hardUnitCountFrame = frame;
+	}
+	return m_hardUnitCountCache >= cap;
+}
+
 struct HardReinforceAnchorData
 {
 	Object *m_commandCenter;
@@ -3148,6 +3190,8 @@ void AIPlayer::doHardReinforcements()
 		return;
 	if( m_player == nullptr || m_player->getPlayerType() != PLAYER_COMPUTER || !m_player->isPlayerActive() )
 		return;
+	if( isHardUnitCapReached() )
+		return;	// GeneralsX @feature AIHardMaxUnits: no free squads while over the population cap
 
 	const UnsignedInt frame = TheGameLogic->getFrame();
 	UnsignedInt intervalFrames = (UnsignedInt)(TheGlobalData->m_aiHardReinforceSeconds * LOGICFRAMES_PER_SECOND);
@@ -3235,10 +3279,21 @@ void AIPlayer::doHardReinforcements()
 		}
 	}
 
-	// instantiate the prototype as a real team (same idiom as doCreateReinforcements), capping
-	// the spawn once the cumulative unit cost exceeds the budget
-	Team *theTeam = TheTeamFactory->createInactiveTeam( bestProto->getName() );
+	// GeneralsX @bugfix Spawn the squad on the player's DEFAULT team and drive it with a direct
+	// AIGroup instead of instantiating the scb prototype: TheTeamFactory->createInactiveTeam
+	// registers the new Team on the prototype's instance list (Team.cpp, prependTo_TeamInstanceList
+	// in the Team bind path), and countTeamInstances() gates isAGoodIdeaToBuildTeam (AIPlayer.cpp /
+	// AISkirmishPlayer.cpp "Max already built") -- long-lived reinforcement squads saturated
+	// m_maxInstances (often 1 for scb attack templates) and permanently wedged scripted attacks.
+	// The prototype is still used as the faction-correct SHOPPING LIST only.  Default-team units
+	// are also AI-recruitable, so surviving reinforcements feed later attack teams instead of
+	// blocking them, and no Team instances exist to leak when the squad is wiped.
+	Team *theTeam = m_player->getDefaultTeam();
 	if( theTeam == nullptr )
+		return;
+
+	AIGroupPtr theGroup = TheAI->createGroup();
+	if( theGroup == nullptr )
 		return;
 
 	const TeamTemplateInfo *info = bestProto->getTemplateInfo();
@@ -3263,6 +3318,7 @@ void AIPlayer::doHardReinforcements()
 			pos.z = TheTerrainLogic->getGroundHeight( pos.x, pos.y );
 			obj->setPosition( &pos );
 			obj->setOrientation( 0.0f );
+			theGroup->add( obj );
 			++spawnedCount;
 			spawnedCost += thing->calcCostToBuild( m_player );
 			if( spawnedCost > budget && spawnedCount >= 1 )
@@ -3274,27 +3330,12 @@ void AIPlayer::doHardReinforcements()
 	}
 
 	if( spawnedCount == 0 )
-	{
-		if( !theTeam->getPrototype()->getIsSingleton() )
-			deleteInstance( theTeam );
 		return;
-	}
-
-	theTeam->setActive();
 
 	if( target != nullptr )
 	{
-		AIGroupPtr theGroup = TheAI->createGroup();
-		if( theGroup )
-		{
-#if RETAIL_COMPATIBLE_AIGROUP
-			theTeam->getTeamAsAIGroup( theGroup );
-#else
-			theTeam->getTeamAsAIGroup( theGroup.Peek() );
-#endif
-			Coord3D targetPos = *target->getPosition();
-			theGroup->groupAttackMoveToPosition( &targetPos, NO_MAX_SHOTS_LIMIT, CMD_FROM_AI );
-		}
+		Coord3D targetPos = *target->getPosition();
+		theGroup->groupAttackMoveToPosition( &targetPos, NO_MAX_SHOTS_LIMIT, CMD_FROM_AI );
 	}
 }
 
@@ -3590,13 +3631,14 @@ void AIPlayer::crc( Xfer *xfer )
 	* 2: added m_teamSeconds delay.
 	* 3: Added m_curWarehouseID.
 	* 1: Reset back to 1 with major save file changes.
+	* 2: GeneralsX @feature AIHardMaxUnits cached live-unit count.
 */
 // ------------------------------------------------------------------------------------------------
 void AIPlayer::xfer( Xfer *xfer )
 {
 
 	// version
-	XferVersion currentVersion = 1;
+	XferVersion currentVersion = 2;
 	XferVersion version = currentVersion;
 	xfer->xferVersion( &version, currentVersion );
 
@@ -3748,6 +3790,14 @@ void AIPlayer::xfer( Xfer *xfer )
 
 	xfer->xferCoord3D( &m_baseCenter );
 	xfer->xferBool( &m_baseCenterSet );
+
+	// GeneralsX @feature AIHardMaxUnits (version 2): keep the cached count consistent across
+	// save/load so cap decisions between refresh boundaries stay peer-identical.
+	if( version >= 2 )
+	{
+		xfer->xferInt( &m_hardUnitCountCache );
+		xfer->xferUnsignedInt( &m_hardUnitCountFrame );
+	}
 	xfer->xferReal( &m_baseRadius );
 
 	xfer->xferUser( m_structuresToRepair, sizeof( ObjectID ) * MAX_STRUCTURES_TO_REPAIR );
