@@ -3040,11 +3040,17 @@ void Weapon::processRequestAssistance( const Object *requestingObject, Object *v
 		// a minor case and an oft used function, but the major case is huge and full of math.
 		if(launcher->getContainedBy()->getContain()->isEnclosingContainerFor(launcher))
 		{
+			// GeneralsX @bugfix: HelixContain-style fire-out bays park riders at the
+			// container's geometric CENTER (+8z), so projectiles launched "from our
+			// actual position" spawn inside the hull -- the visible flight is swallowed
+			// by the mesh and rough terrain can ground-detonate the shot at the tank.
+			// Launch from the container's hull top instead so bay fire is visible.
+			const Object *container = launcher->getContainedBy();
 			worldTransform = *launcher->getTransformMatrix();
-			Vector3 tmp = worldTransform.Get_Translation();
-			worldPos.x = tmp.X;
-			worldPos.y = tmp.Y;
-			worldPos.z = tmp.Z;
+			Coord3D basePos = *container->getPosition();
+			basePos.z += container->getGeometryInfo().getMaxHeightAbovePosition();
+			worldTransform.Set_Translation( Vector3( basePos.x, basePos.y, basePos.z ) );
+			worldPos = basePos;
 			return;
 		}
 	}
@@ -3142,6 +3148,12 @@ void Weapon::processRequestAssistance( const Object *requestingObject, Object *v
 	{
 		launcherPhys->transferVelocityTo(missilePhys);
 		missilePhys->setIgnoreCollisionsWith(launcher);
+		// GeneralsX @bugfix: a bay-fired projectile now launches at the container's
+		// hull, so it must not physics-collide with the container. The ignore slot
+		// is single-valued; overwriting the launcher entry is safe because an
+		// enclosed launcher is unregistered from the partition manager entirely.
+		if( launcher->getContainedBy() )
+			missilePhys->setIgnoreCollisionsWith( launcher->getContainedBy() );
 	}
 }
 
